@@ -10,9 +10,16 @@ import { db, Textbook as ITextbook, Chapter as IChapter } from "@/lib/db";
 import { extractTextFromPDF, detectStructure, generateChunks, ParsedPage } from "@/lib/parser";
 import { v4 as uuidv4 } from 'uuid';
 import { useLiveQuery } from "dexie-react-hooks";
+import { useOutletContext } from "react-router-dom";
 
 const TextbookPage = () => {
-  const textbooks = useLiveQuery(() => db.textbooks.toArray());
+  const { userId } = useOutletContext<{ userId: string }>();
+  
+  // Filter textbooks by the current logged-in user
+  const textbooks = useLiveQuery(
+    () => db.textbooks.where('userId').equals(userId).toArray(),
+    [userId]
+  );
   
   // Upload State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,8 +34,10 @@ const TextbookPage = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    if (textbooks && textbooks.length > 0 && !activeTextbook) {
-        setActiveTextbook(textbooks[0]);
+    // If books change (e.g. one deleted), reset active if it's gone
+    if (activeTextbook && textbooks) {
+        const stillExists = textbooks.find(b => b.id === activeTextbook.id);
+        if (!stillExists) setActiveTextbook(null);
     }
   }, [textbooks]);
 
@@ -65,6 +74,7 @@ const TextbookPage = () => {
         // 3. Save Textbook
         const newTextbook: ITextbook = {
             id: textbookId,
+            userId: userId, // Bind to current user
             title: file.name.replace('.pdf', ''),
             fileName: file.name,
             totalPages: pages.length,
@@ -99,7 +109,7 @@ const TextbookPage = () => {
         
     } catch (err) {
         console.error(err);
-        setStatus("Error processing PDF");
+        setStatus("Error processing PDF: " + err);
     } finally {
         setIsProcessing(false);
     }
@@ -118,7 +128,6 @@ const TextbookPage = () => {
     const updated = { ...chapter, [field]: value };
     const newChapters = chapters.map(c => c.id === chapter.id ? updated : c);
     setChapters(newChapters);
-    // In a real app we might debounce this save or wait for a "Save" button
   };
 
   const saveChapters = async () => {
@@ -140,7 +149,7 @@ const TextbookPage = () => {
         )}
       </div>
 
-      {!activeTextbook ? (
+      {!activeTextbook && (!textbooks || textbooks.length === 0) ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             {isProcessing ? (
@@ -179,7 +188,7 @@ const TextbookPage = () => {
                     {textbooks?.map(book => (
                         <div 
                             key={book.id}
-                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${activeTextbook.id === book.id ? 'bg-primary/10 border-primary' : 'hover:bg-secondary'}`}
+                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${activeTextbook?.id === book.id ? 'bg-primary/10 border-primary' : 'hover:bg-secondary'}`}
                             onClick={() => setActiveTextbook(book)}
                         >
                             <div className="flex justify-between items-start">
@@ -193,94 +202,105 @@ const TextbookPage = () => {
                             </div>
                         </div>
                     ))}
+                    {!activeTextbook && textbooks?.length > 0 && (
+                        <Button className="w-full mt-4" variant="outline" onClick={() => setActiveTextbook(null)}>
+                            <Upload className="mr-2 h-4 w-4" /> Upload New
+                        </Button>
+                    )}
                 </CardContent>
             </Card>
 
             {/* Main Content: Chapter Editor */}
-            <Card className="md:col-span-3">
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>{activeTextbook.title}</CardTitle>
-                        <CardDescription>Table of Contents</CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                        {isEditing ? (
-                             <Button onClick={saveChapters} size="sm" className="gap-2">
-                                <Save size={16} /> Save Changes
-                             </Button>
-                        ) : (
-                            <Button onClick={() => setIsEditing(true)} variant="outline" size="sm" className="gap-2">
-                                <Edit2 size={16} /> Edit Structure
-                            </Button>
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[80px]">Ch #</TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead className="w-[100px]">Start Page</TableHead>
-                                <TableHead className="w-[100px]">End Page</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {chapters.sort((a,b) => a.number - b.number).map((chapter) => (
-                                <TableRow key={chapter.id}>
-                                    <TableCell>
-                                        {isEditing ? (
-                                            <Input 
-                                                type="number" 
-                                                value={chapter.number} 
-                                                onChange={(e) => handleChapterUpdate(chapter, 'number', parseInt(e.target.value))}
-                                                className="h-8 w-12" 
-                                            />
-                                        ) : (
-                                            <span className="font-medium">{chapter.number}</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        {isEditing ? (
-                                            <Input 
-                                                value={chapter.title} 
-                                                onChange={(e) => handleChapterUpdate(chapter, 'title', e.target.value)}
-                                                className="h-8" 
-                                            />
-                                        ) : (
-                                            <span>{chapter.title}</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        {isEditing ? (
-                                            <Input 
-                                                type="number" 
-                                                value={chapter.startPage} 
-                                                onChange={(e) => handleChapterUpdate(chapter, 'startPage', parseInt(e.target.value))}
-                                                className="h-8 w-20" 
-                                            />
-                                        ) : (
-                                            <span className="text-muted-foreground">{chapter.startPage}</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        {isEditing ? (
-                                            <Input 
-                                                type="number" 
-                                                value={chapter.endPage} 
-                                                onChange={(e) => handleChapterUpdate(chapter, 'endPage', parseInt(e.target.value))}
-                                                className="h-8 w-20" 
-                                            />
-                                        ) : (
-                                            <span className="text-muted-foreground">{chapter.endPage}</span>
-                                        )}
-                                    </TableCell>
+            {activeTextbook ? (
+                <Card className="md:col-span-3">
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>{activeTextbook.title}</CardTitle>
+                            <CardDescription>Table of Contents</CardDescription>
+                        </div>
+                        <div className="flex gap-2">
+                            {isEditing ? (
+                                <Button onClick={saveChapters} size="sm" className="gap-2">
+                                    <Save size={16} /> Save Changes
+                                </Button>
+                            ) : (
+                                <Button onClick={() => setIsEditing(true)} variant="outline" size="sm" className="gap-2">
+                                    <Edit2 size={16} /> Edit Structure
+                                </Button>
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[80px]">Ch #</TableHead>
+                                    <TableHead>Title</TableHead>
+                                    <TableHead className="w-[100px]">Start Page</TableHead>
+                                    <TableHead className="w-[100px]">End Page</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                            </TableHeader>
+                            <TableBody>
+                                {chapters.sort((a,b) => a.number - b.number).map((chapter) => (
+                                    <TableRow key={chapter.id}>
+                                        <TableCell>
+                                            {isEditing ? (
+                                                <Input 
+                                                    type="number" 
+                                                    value={chapter.number} 
+                                                    onChange={(e) => handleChapterUpdate(chapter, 'number', parseInt(e.target.value))}
+                                                    className="h-8 w-12" 
+                                                />
+                                            ) : (
+                                                <span className="font-medium">{chapter.number}</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {isEditing ? (
+                                                <Input 
+                                                    value={chapter.title} 
+                                                    onChange={(e) => handleChapterUpdate(chapter, 'title', e.target.value)}
+                                                    className="h-8" 
+                                                />
+                                            ) : (
+                                                <span>{chapter.title}</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {isEditing ? (
+                                                <Input 
+                                                    type="number" 
+                                                    value={chapter.startPage} 
+                                                    onChange={(e) => handleChapterUpdate(chapter, 'startPage', parseInt(e.target.value))}
+                                                    className="h-8 w-20" 
+                                                />
+                                            ) : (
+                                                <span className="text-muted-foreground">{chapter.startPage}</span>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {isEditing ? (
+                                                <Input 
+                                                    type="number" 
+                                                    value={chapter.endPage} 
+                                                    onChange={(e) => handleChapterUpdate(chapter, 'endPage', parseInt(e.target.value))}
+                                                    className="h-8 w-20" 
+                                                />
+                                            ) : (
+                                                <span className="text-muted-foreground">{chapter.endPage}</span>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="md:col-span-3 flex items-center justify-center text-muted-foreground bg-secondary/20 rounded-lg">
+                    Select a book from the sidebar to view details
+                </div>
+            )}
         </div>
       )}
     </div>

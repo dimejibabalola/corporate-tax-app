@@ -9,6 +9,7 @@ import Textbook from "./pages/Textbook";
 import QuizConfig from "./pages/QuizConfig";
 import Progress from "./pages/Progress";
 import Settings from "./pages/Settings";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/login" element={<Login />} />
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/textbook" element={<Textbook />} />

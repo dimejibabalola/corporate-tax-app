@@ -2,12 +2,13 @@ import Dexie, { Table } from 'dexie';
 
 export interface Textbook {
   id: string;
+  userId: string; // Added for multi-user support
   title: string;
   fileName: string;
   totalPages: number;
   uploadDate: Date;
   processed: boolean;
-  fileData?: Blob; // Storing the actual PDF for now (be careful with size)
+  fileData?: Blob; 
 }
 
 export interface Chapter {
@@ -38,8 +39,17 @@ export class TaxPrepDB extends Dexie {
 
   constructor() {
     super('TaxPrepDB');
+    // Version 1 (Old)
     this.version(1).stores({
       textbooks: 'id, title',
+      chapters: 'id, textbookId, number',
+      chunks: 'id, textbookId, chapterId, sequenceOrder'
+    });
+    
+    // Version 2 (New - adds userId index)
+    // We upgrade the schema to index userId for fast filtering
+    this.version(2).stores({
+      textbooks: 'id, userId, title',
       chapters: 'id, textbookId, number',
       chunks: 'id, textbookId, chapterId, sequenceOrder'
     });

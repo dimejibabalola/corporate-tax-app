@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation, Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -8,11 +8,13 @@ import {
   Settings, 
   Menu, 
   X,
-  GraduationCap
+  GraduationCap,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
 
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/" },
@@ -24,10 +26,41 @@ const NAV_ITEMS = [
 
 export const AppLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoading(false);
+      if (!session) navigate("/login");
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) navigate("/login");
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
+
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
+
+  if (!session) return null;
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-neutral-950 text-foreground overflow-hidden">
@@ -42,7 +75,7 @@ export const AppLayout = () => {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-neutral-900 border-r border-gray-200 dark:border-neutral-800 transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-neutral-900 border-r border-gray-200 dark:border-neutral-800 transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 flex flex-col",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -60,7 +93,7 @@ export const AppLayout = () => {
           )}
         </div>
 
-        <nav className="p-4 space-y-1">
+        <nav className="p-4 space-y-1 flex-1">
           {NAV_ITEMS.map((item) => {
             const isActive = location.pathname === item.path || (item.path !== "/" && location.pathname.startsWith(item.path));
             return (
@@ -82,16 +115,21 @@ export const AppLayout = () => {
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100 dark:border-neutral-800">
+        <div className="p-4 border-t border-gray-100 dark:border-neutral-800 space-y-4">
           <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-lg border border-gray-100 dark:border-neutral-700">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Exam Readiness</span>
-              <span className="text-xs font-bold text-primary">64%</span>
+              <span className="text-xs font-bold text-primary">0%</span>
             </div>
             <div className="h-2 w-full bg-gray-200 dark:bg-neutral-700 rounded-full overflow-hidden">
-              <div className="h-full bg-primary w-[64%]" />
+              <div className="h-full bg-primary w-[0%]" />
             </div>
           </div>
+          
+          <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleSignOut}>
+            <LogOut size={18} className="mr-2" />
+            Sign Out
+          </Button>
         </div>
       </aside>
 
@@ -108,7 +146,7 @@ export const AppLayout = () => {
         )}
         
         <div className="flex-1 overflow-auto p-4 lg:p-8">
-          <Outlet />
+          <Outlet context={{ userId: session.user.id }} />
         </div>
       </main>
     </div>
