@@ -59,6 +59,10 @@ const Login = () => {
           theme="light"
           providers={[]}
         />
+        
+        <div className="text-center text-xs text-muted-foreground mt-4">
+            <p>If signing up, please check your spam folder for the confirmation link.</p>
+        </div>
       </div>
     </div>
   );

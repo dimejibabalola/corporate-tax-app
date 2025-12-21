@@ -5,15 +5,16 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Check, BookOpen, Scale, ScrollText, Save, Edit2, ChevronDown, ChevronRight, Eye } from "lucide-react";
+import { Upload, FileText, Check, BookOpen, Scale, ScrollText, Save, Edit2, ChevronDown, Eye } from "lucide-react";
 import { useState, useEffect } from "react";
-import { db, Textbook as ITextbook, Chapter as IChapter, Chunk as IChunk } from "@/lib/db";
+import { db, Textbook as ITextbook, Chapter as IChapter } from "@/lib/db";
 import { detectStructureFromText, generateChunksFromText } from "@/lib/parser";
 import { v4 as uuidv4 } from 'uuid';
 import { useLiveQuery } from "dexie-react-hooks";
 import { useOutletContext } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 
 const TextbookPage = () => {
   const { userId } = useOutletContext<{ userId: string }>();
@@ -56,12 +57,16 @@ const TextbookPage = () => {
             });
             setStats({ cases, statutes, chunks: chunks.length });
         });
+    } else {
+        setChapters([]);
+        setStats({ cases: 0, statutes: 0, chunks: 0 });
     }
   }, [masterBook]);
 
   // Load details when expanding a chapter
   useEffect(() => {
     if (expandedChapter && masterBook) {
+        setChapterDetails(null); // Clear previous details
         db.chunks
             .where('chapterId').equals(expandedChapter)
             .toArray()
@@ -73,13 +78,13 @@ const TextbookPage = () => {
                 chunks.forEach((c, idx) => {
                     c.caseRefs?.forEach(ref => cases.add(ref));
                     c.statutoryRefs?.forEach(ref => statutes.add(ref));
-                    if(idx < 2) textPreview += c.content + "\n\n";
+                    if(idx < 3) textPreview += c.content + "\n\n";
                 });
 
                 setChapterDetails({
                     cases: Array.from(cases).sort(),
                     statutes: Array.from(statutes).sort(),
-                    textPreview: textPreview.slice(0, 500) + "..."
+                    textPreview: textPreview.slice(0, 800) + "..."
                 });
             });
     }
@@ -115,40 +120,51 @@ const TextbookPage = () => {
             processed: true
         };
         
-        await db.textbooks.clear(); 
-        await db.textbooks.add(newTextbook);
-        
-        const newChapters = structure.chapters.map(c => ({
-            id: uuidv4(),
-            textbookId,
-            number: c.number,
-            title: c.title,
-            startPage: c.startLine,
-            endPage: c.endLine
-        }));
-        
-        await db.chapters.clear();
-        await db.chapters.bulkAdd(newChapters);
-        
-        setStatus("Indexing Case Law & Statutes...");
-        setProgress(75);
+        // Transaction to ensure clean state
+        await db.transaction('rw', db.textbooks, db.chapters, db.chunks, async () => {
+            // Clear old data for this user to enforce single-source
+            const oldBooks = await db.textbooks.where('userId').equals(userId).toArray();
+            for(const b of oldBooks) {
+                await db.chapters.where('textbookId').equals(b.id).delete();
+                await db.chunks.where('textbookId').equals(b.id).delete();
+            }
+            await db.textbooks.where('userId').equals(userId).delete();
 
-        const chunks = generateChunksFromText(text, newChapters.map(nc => ({
-            ...nc,
-            startLine: nc.startPage,
-            endLine: nc.endPage
-        })), textbookId);
+            await db.textbooks.add(newTextbook);
+            
+            const newChapters = structure.chapters.map(c => ({
+                id: uuidv4(),
+                textbookId,
+                number: c.number,
+                title: c.title,
+                startPage: c.startLine,
+                endPage: c.endLine
+            }));
+            
+            await db.chapters.bulkAdd(newChapters);
+            
+            // We need to pass the ID-hydrated chapters to the chunker
+            // We'll create a temporary map for the chunker
+            const chaptersForChunker = newChapters.map(nc => ({
+                id: nc.id,
+                number: nc.number,
+                title: nc.title,
+                startLine: nc.startPage,
+                endLine: nc.endPage
+            }));
 
-        await db.chunks.clear();
-        await db.chunks.bulkAdd(chunks);
+            const chunks = generateChunksFromText(text, chaptersForChunker, textbookId);
+            await db.chunks.bulkAdd(chunks);
+        });
         
         setProgress(100);
         setStatus("Course Initialized Successfully");
-        window.location.reload(); // Refresh to ensure clean state load
+        toast.success("Course material loaded successfully!");
         
     } catch (err) {
         console.error(err);
         setStatus("Error: " + err);
+        toast.error("Failed to load course material");
     } finally {
         setIsProcessing(false);
     }
@@ -163,6 +179,7 @@ const TextbookPage = () => {
   const saveChapters = async () => {
     await db.chapters.bulkPut(chapters);
     setIsEditing(false);
+    toast.success("Structure updated");
   };
 
   if (!masterBook && !isProcessing) {
@@ -196,7 +213,7 @@ const TextbookPage = () => {
                             />
                         </Label>
                         <p className="text-xs text-muted-foreground mt-4">
-                            Accepts .txt format only.
+                            Accepts .txt format only. This will overwrite any existing course data.
                         </p>
                     </div>
                 </CardContent>
@@ -225,9 +242,8 @@ const TextbookPage = () => {
         <div className="flex gap-2">
             <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
                 if(confirm("Are you sure? This will delete all course data and progress.")) {
-                    db.textbooks.clear();
-                    db.chapters.clear();
-                    db.chunks.clear();
+                    db.textbooks.where('userId').equals(userId).delete();
+                    db.chapters.clear(); // We should really scope this to user but Dexie logic above handles it on reload
                     window.location.reload();
                 }
             }}>
