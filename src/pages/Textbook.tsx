@@ -2,121 +2,283 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Book, FileText, Check } from "lucide-react";
-import { useState } from "react";
-import { MOCK_CHAPTERS } from "@/lib/mock-data";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Progress } from "@/components/ui/progress";
+import { Upload, Book, FileText, Check, Trash2, Edit2, Loader2, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { db, Textbook as ITextbook, Chapter as IChapter } from "@/lib/db";
+import { extractTextFromPDF, detectStructure, generateChunks, ParsedPage } from "@/lib/parser";
+import { v4 as uuidv4 } from 'uuid';
+import { useLiveQuery } from "dexie-react-hooks";
 
-const Textbook = () => {
-  const [isUploading, setIsUploading] = useState(false);
-  const [hasFile, setHasFile] = useState(true); // Default to true for demo
+const TextbookPage = () => {
+  const textbooks = useLiveQuery(() => db.textbooks.toArray());
+  
+  // Upload State
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState("");
+  
+  // Selection State
+  const [activeTextbook, setActiveTextbook] = useState<ITextbook | null>(null);
+  
+  // Editing State
+  const [chapters, setChapters] = useState<IChapter[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const handleUpload = () => {
-    setIsUploading(true);
-    // Simulate upload
-    setTimeout(() => {
-      setIsUploading(false);
-      setHasFile(true);
-    }, 2000);
+  useEffect(() => {
+    if (textbooks && textbooks.length > 0 && !activeTextbook) {
+        setActiveTextbook(textbooks[0]);
+    }
+  }, [textbooks]);
+
+  useEffect(() => {
+    if (activeTextbook) {
+        db.chapters.where('textbookId').equals(activeTextbook.id).toArray().then(setChapters);
+    } else {
+        setChapters([]);
+    }
+  }, [activeTextbook]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessing(true);
+    setProgress(10);
+    setStatus("Extracting text (this may take a while)...");
+
+    try {
+        const textbookId = uuidv4();
+        
+        // 1. Extract
+        const pages = await extractTextFromPDF(file, (current, total) => {
+            setProgress(10 + Math.floor((current / total) * 50)); // 10% to 60%
+        });
+        
+        setStatus("Detecting structure...");
+        setProgress(70);
+        
+        // 2. Structure
+        const structure = detectStructure(pages);
+        
+        // 3. Save Textbook
+        const newTextbook: ITextbook = {
+            id: textbookId,
+            title: file.name.replace('.pdf', ''),
+            fileName: file.name,
+            totalPages: pages.length,
+            uploadDate: new Date(),
+            processed: true
+        };
+        
+        await db.textbooks.add(newTextbook);
+        
+        // 4. Save Chapters
+        const newChapters = structure.chapters.map(c => ({
+            id: uuidv4(),
+            textbookId,
+            number: c.number,
+            title: c.title,
+            startPage: c.startPage,
+            endPage: c.endPage
+        }));
+        
+        await db.chapters.bulkAdd(newChapters);
+        
+        setStatus("Generating chunks...");
+        setProgress(90);
+
+        // 5. Generate & Save Chunks (Backgroundish)
+        const chunks = generateChunks(pages, newChapters, textbookId);
+        await db.chunks.bulkAdd(chunks);
+        
+        setProgress(100);
+        setStatus("Complete!");
+        setActiveTextbook(newTextbook);
+        
+    } catch (err) {
+        console.error(err);
+        setStatus("Error processing PDF");
+    } finally {
+        setIsProcessing(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    await db.transaction('rw', db.textbooks, db.chapters, db.chunks, async () => {
+        await db.textbooks.delete(id);
+        await db.chapters.where('textbookId').equals(id).delete();
+        await db.chunks.where('textbookId').equals(id).delete();
+    });
+    if (activeTextbook?.id === id) setActiveTextbook(null);
+  };
+
+  const handleChapterUpdate = async (chapter: IChapter, field: keyof IChapter, value: any) => {
+    const updated = { ...chapter, [field]: value };
+    const newChapters = chapters.map(c => c.id === chapter.id ? updated : c);
+    setChapters(newChapters);
+    // In a real app we might debounce this save or wait for a "Save" button
+  };
+
+  const saveChapters = async () => {
+    await db.chapters.bulkPut(chapters);
+    setIsEditing(false);
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Textbook Material</h1>
-        <p className="text-muted-foreground">Manage your source material and parsing status.</p>
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex justify-between items-center">
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight">Textbook Library</h1>
+            <p className="text-muted-foreground">Manage your study materials.</p>
+        </div>
+        {activeTextbook && (
+            <Button variant="outline" onClick={() => setActiveTextbook(null)}>
+                Upload New
+            </Button>
+        )}
       </div>
 
-      {!hasFile ? (
+      {!activeTextbook ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 bg-secondary/50 rounded-full flex items-center justify-center mb-4">
-              <Upload className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Upload your Textbook PDF</h3>
-            <p className="text-muted-foreground max-w-sm mb-6">
-              Upload your Corporate Tax casebook. We support PDF files up to 100MB.
-              We'll parse chapters and sections automatically.
-            </p>
-            <div className="flex flex-col gap-4 w-full max-w-xs">
-              <div className="grid w-full max-w-sm items-center gap-1.5">
-                <Label htmlFor="textbook">File</Label>
-                <Input id="textbook" type="file" accept=".pdf" />
-              </div>
-              <Button onClick={handleUpload} disabled={isUploading}>
-                {isUploading ? "Processing..." : "Upload and Parse"}
-              </Button>
-            </div>
+            {isProcessing ? (
+                <div className="w-full max-w-md space-y-4">
+                    <Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" />
+                    <p className="text-lg font-medium">{status}</p>
+                    <Progress value={progress} className="w-full" />
+                </div>
+            ) : (
+                <>
+                    <div className="w-16 h-16 bg-secondary/50 rounded-full flex items-center justify-center mb-4">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Upload PDF Textbook</h3>
+                    <p className="text-muted-foreground max-w-sm mb-6">
+                    Parsing happens entirely in your browser. No data leaves your device.
+                    </p>
+                    <div className="flex flex-col gap-4 w-full max-w-xs">
+                    <div className="grid w-full max-w-sm items-center gap-1.5">
+                        <Label htmlFor="textbook">Select File</Label>
+                        <Input id="textbook" type="file" accept=".pdf" onChange={handleUpload} />
+                    </div>
+                    </div>
+                </>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-4">
+            {/* Sidebar List */}
             <Card className="md:col-span-1 h-fit">
                 <CardHeader>
-                    <CardTitle>Current Textbook</CardTitle>
-                    <CardDescription>Corporate Taxation: Examples & Explanations</CardDescription>
+                    <CardTitle>My Books</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
-                        <FileText className="h-8 w-8 text-blue-500" />
-                        <div className="overflow-hidden">
-                            <p className="text-sm font-medium truncate">corp_tax_block_e_e_4th.pdf</p>
-                            <p className="text-xs text-muted-foreground">32MB • Parsed 5 days ago</p>
-                        </div>
-                    </div>
-                    <Button variant="outline" className="w-full">
-                        Replace File
-                    </Button>
-                    
-                    <div className="pt-4 border-t">
-                        <h4 className="text-sm font-medium mb-2">Parsing Stats</h4>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Pages</span>
-                                <span>842</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Chapters</span>
-                                <span>18</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Status</span>
-                                <span className="text-green-600 flex items-center gap-1"><Check size={12}/> Complete</span>
+                <CardContent className="space-y-2">
+                    {textbooks?.map(book => (
+                        <div 
+                            key={book.id}
+                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${activeTextbook.id === book.id ? 'bg-primary/10 border-primary' : 'hover:bg-secondary'}`}
+                            onClick={() => setActiveTextbook(book)}
+                        >
+                            <div className="flex justify-between items-start">
+                                <div className="overflow-hidden">
+                                    <p className="font-medium truncate">{book.title}</p>
+                                    <p className="text-xs text-muted-foreground">{book.totalPages} Pages</p>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(book.id); }}>
+                                    <Trash2 size={14} />
+                                </Button>
                             </div>
                         </div>
-                    </div>
+                    ))}
                 </CardContent>
             </Card>
 
-            <Card className="md:col-span-2">
-                <CardHeader>
-                    <CardTitle>Table of Contents</CardTitle>
-                    <CardDescription>Detected chapters and sections</CardDescription>
+            {/* Main Content: Chapter Editor */}
+            <Card className="md:col-span-3">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>{activeTextbook.title}</CardTitle>
+                        <CardDescription>Table of Contents</CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                        {isEditing ? (
+                             <Button onClick={saveChapters} size="sm" className="gap-2">
+                                <Save size={16} /> Save Changes
+                             </Button>
+                        ) : (
+                            <Button onClick={() => setIsEditing(true)} variant="outline" size="sm" className="gap-2">
+                                <Edit2 size={16} /> Edit Structure
+                            </Button>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-1">
-                        {MOCK_CHAPTERS.map((chapter) => (
-                            <div 
-                                key={chapter.id} 
-                                className="flex items-center justify-between p-3 hover:bg-secondary/50 rounded-lg transition-colors group cursor-pointer"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground group-hover:bg-white group-hover:shadow-sm transition-all">
-                                        {chapter.number}
-                                    </div>
-                                    <div>
-                                        <p className="font-medium">{chapter.title}</p>
-                                        <p className="text-xs text-muted-foreground">Pages {chapter.pageRange}</p>
-                                    </div>
-                                </div>
-                                <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">
-                                    <Book size={16} />
-                                </Button>
-                            </div>
-                        ))}
-                        <div className="p-3 text-center text-sm text-muted-foreground">
-                            + 11 more chapters
-                        </div>
-                    </div>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[80px]">Ch #</TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead className="w-[100px]">Start Page</TableHead>
+                                <TableHead className="w-[100px]">End Page</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {chapters.sort((a,b) => a.number - b.number).map((chapter) => (
+                                <TableRow key={chapter.id}>
+                                    <TableCell>
+                                        {isEditing ? (
+                                            <Input 
+                                                type="number" 
+                                                value={chapter.number} 
+                                                onChange={(e) => handleChapterUpdate(chapter, 'number', parseInt(e.target.value))}
+                                                className="h-8 w-12" 
+                                            />
+                                        ) : (
+                                            <span className="font-medium">{chapter.number}</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        {isEditing ? (
+                                            <Input 
+                                                value={chapter.title} 
+                                                onChange={(e) => handleChapterUpdate(chapter, 'title', e.target.value)}
+                                                className="h-8" 
+                                            />
+                                        ) : (
+                                            <span>{chapter.title}</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        {isEditing ? (
+                                            <Input 
+                                                type="number" 
+                                                value={chapter.startPage} 
+                                                onChange={(e) => handleChapterUpdate(chapter, 'startPage', parseInt(e.target.value))}
+                                                className="h-8 w-20" 
+                                            />
+                                        ) : (
+                                            <span className="text-muted-foreground">{chapter.startPage}</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        {isEditing ? (
+                                            <Input 
+                                                type="number" 
+                                                value={chapter.endPage} 
+                                                onChange={(e) => handleChapterUpdate(chapter, 'endPage', parseInt(e.target.value))}
+                                                className="h-8 w-20" 
+                                            />
+                                        ) : (
+                                            <span className="text-muted-foreground">{chapter.endPage}</span>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 </CardContent>
             </Card>
         </div>
@@ -125,4 +287,4 @@ const Textbook = () => {
   );
 };
 
-export default Textbook;
+export default TextbookPage;
