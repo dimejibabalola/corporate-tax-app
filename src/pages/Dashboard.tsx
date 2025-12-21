@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MOCK_CHAPTERS, MASTERY_COLORS, MASTERY_LABELS } from "@/lib/mock-data";
-import { ArrowRight, TrendingUp, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
+import { ArrowRight, TrendingUp, AlertCircle, Clock, CheckCircle2, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
