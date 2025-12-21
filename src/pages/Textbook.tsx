@@ -5,19 +5,19 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Check, BookOpen, Scale, ScrollText, AlertCircle, Save, Edit2 } from "lucide-react";
+import { Upload, FileText, Check, BookOpen, Scale, ScrollText, Save, Edit2, ChevronDown, ChevronRight, Eye } from "lucide-react";
 import { useState, useEffect } from "react";
-import { db, Textbook as ITextbook, Chapter as IChapter } from "@/lib/db";
+import { db, Textbook as ITextbook, Chapter as IChapter, Chunk as IChunk } from "@/lib/db";
 import { detectStructureFromText, generateChunksFromText } from "@/lib/parser";
 import { v4 as uuidv4 } from 'uuid';
 import { useLiveQuery } from "dexie-react-hooks";
 import { useOutletContext } from "react-router-dom";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const TextbookPage = () => {
   const { userId } = useOutletContext<{ userId: string }>();
   
-  // We only care about ONE master textbook for the course
   const textbooks = useLiveQuery(
     () => db.textbooks.where('userId').equals(userId).toArray(),
     [userId]
@@ -37,13 +37,16 @@ const TextbookPage = () => {
   // Editing State
   const [isEditing, setIsEditing] = useState(false);
 
+  // Deep Dive Inspection State
+  const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
+  const [chapterDetails, setChapterDetails] = useState<{cases: string[], statutes: string[], textPreview: string} | null>(null);
+
   useEffect(() => {
     if (masterBook) {
         db.chapters.where('textbookId').equals(masterBook.id).toArray().then((chaps) => {
              setChapters(chaps.sort((a,b) => a.number - b.number));
         });
         
-        // Calculate stats from chunks
         db.chunks.where('textbookId').equals(masterBook.id).toArray().then(chunks => {
             let cases = 0;
             let statutes = 0;
@@ -55,6 +58,32 @@ const TextbookPage = () => {
         });
     }
   }, [masterBook]);
+
+  // Load details when expanding a chapter
+  useEffect(() => {
+    if (expandedChapter && masterBook) {
+        db.chunks
+            .where('chapterId').equals(expandedChapter)
+            .toArray()
+            .then(chunks => {
+                const cases = new Set<string>();
+                const statutes = new Set<string>();
+                let textPreview = "";
+
+                chunks.forEach((c, idx) => {
+                    c.caseRefs?.forEach(ref => cases.add(ref));
+                    c.statutoryRefs?.forEach(ref => statutes.add(ref));
+                    if(idx < 2) textPreview += c.content + "\n\n";
+                });
+
+                setChapterDetails({
+                    cases: Array.from(cases).sort(),
+                    statutes: Array.from(statutes).sort(),
+                    textPreview: textPreview.slice(0, 500) + "..."
+                });
+            });
+    }
+  }, [expandedChapter, masterBook]);
 
   const handleInitializeCourse = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -71,13 +100,11 @@ const TextbookPage = () => {
         setStatus("Analyzing Legal Structure...");
         setProgress(25);
         
-        // 1. Structure Detection
         const structure = detectStructureFromText(text);
         
         setStatus("Creating Master Record...");
         setProgress(50);
 
-        // 2. Save Master Textbook
         const newTextbook: ITextbook = {
             id: textbookId,
             userId: userId,
@@ -88,10 +115,9 @@ const TextbookPage = () => {
             processed: true
         };
         
-        await db.textbooks.clear(); // Ensure only one exists
+        await db.textbooks.clear(); 
         await db.textbooks.add(newTextbook);
         
-        // 3. Save Chapters
         const newChapters = structure.chapters.map(c => ({
             id: uuidv4(),
             textbookId,
@@ -107,7 +133,6 @@ const TextbookPage = () => {
         setStatus("Indexing Case Law & Statutes...");
         setProgress(75);
 
-        // 4. Generate Chunks & Extract Entities
         const chunks = generateChunksFromText(text, newChapters.map(nc => ({
             ...nc,
             startLine: nc.startPage,
@@ -119,6 +144,7 @@ const TextbookPage = () => {
         
         setProgress(100);
         setStatus("Course Initialized Successfully");
+        window.location.reload(); // Refresh to ensure clean state load
         
     } catch (err) {
         console.error(err);
@@ -139,9 +165,6 @@ const TextbookPage = () => {
     setIsEditing(false);
   };
 
-  // ----------------------------------------------------------------------
-  // VIEW: INITIALIZATION (No book loaded)
-  // ----------------------------------------------------------------------
   if (!masterBook && !isProcessing) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-3xl mx-auto text-center space-y-8">
@@ -173,7 +196,7 @@ const TextbookPage = () => {
                             />
                         </Label>
                         <p className="text-xs text-muted-foreground mt-4">
-                            Accepts .txt format only. This will overwrite any existing course data.
+                            Accepts .txt format only.
                         </p>
                     </div>
                 </CardContent>
@@ -182,9 +205,6 @@ const TextbookPage = () => {
       );
   }
 
-  // ----------------------------------------------------------------------
-  // VIEW: PROCESSING
-  // ----------------------------------------------------------------------
   if (isProcessing) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-md mx-auto text-center space-y-6">
@@ -195,9 +215,6 @@ const TextbookPage = () => {
       );
   }
 
-  // ----------------------------------------------------------------------
-  // VIEW: COURSE CONTENT (Book loaded)
-  // ----------------------------------------------------------------------
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-start">
@@ -261,7 +278,7 @@ const TextbookPage = () => {
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
                 <CardTitle>Course Structure</CardTitle>
-                <CardDescription>Detected hierarchy from source text</CardDescription>
+                <CardDescription>Click a row to verify extracted content</CardDescription>
             </div>
             <div className="flex gap-2">
                 {isEditing ? (
@@ -276,55 +293,114 @@ const TextbookPage = () => {
             </div>
         </CardHeader>
         <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="w-[80px]">Ch #</TableHead>
-                        <TableHead>Title</TableHead>
-                        <TableHead className="w-[120px]">Lines</TableHead>
-                        <TableHead className="w-[100px]">Status</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {chapters.map((chapter) => (
-                        <TableRow key={chapter.id}>
-                            <TableCell>
-                                {isEditing ? (
-                                    <Input 
-                                        type="number" 
-                                        value={chapter.number} 
-                                        onChange={(e) => handleChapterUpdate(chapter, 'number', parseInt(e.target.value))}
-                                        className="h-8 w-12" 
-                                    />
-                                ) : (
-                                    <span className="font-bold text-muted-foreground">{chapter.number}</span>
-                                )}
-                            </TableCell>
-                            <TableCell>
-                                {isEditing ? (
-                                    <Input 
-                                        value={chapter.title} 
-                                        onChange={(e) => handleChapterUpdate(chapter, 'title', e.target.value)}
-                                        className="h-8" 
-                                    />
-                                ) : (
-                                    <span className="font-medium">{chapter.title}</span>
-                                )}
-                            </TableCell>
-                            <TableCell>
-                                <span className="text-xs text-muted-foreground font-mono">
+            <div className="border rounded-md divide-y">
+                <div className="grid grid-cols-12 bg-muted/50 p-3 text-sm font-medium">
+                    <div className="col-span-1">Ch #</div>
+                    <div className="col-span-8">Title</div>
+                    <div className="col-span-2">Lines</div>
+                    <div className="col-span-1">Status</div>
+                </div>
+                
+                {chapters.map((chapter) => (
+                    <Collapsible 
+                        key={chapter.id} 
+                        open={expandedChapter === chapter.id}
+                        onOpenChange={(open) => setExpandedChapter(open ? chapter.id : null)}
+                    >
+                        <CollapsibleTrigger asChild>
+                            <div className="grid grid-cols-12 p-3 text-sm items-center hover:bg-muted/30 cursor-pointer transition-colors group">
+                                <div className="col-span-1">
+                                    {isEditing ? (
+                                        <Input 
+                                            type="number" 
+                                            value={chapter.number} 
+                                            onChange={(e) => handleChapterUpdate(chapter, 'number', parseInt(e.target.value))}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-8 w-12" 
+                                        />
+                                    ) : (
+                                        <span className="font-bold text-muted-foreground">{chapter.number}</span>
+                                    )}
+                                </div>
+                                <div className="col-span-8 font-medium flex items-center gap-2">
+                                    {isEditing ? (
+                                        <Input 
+                                            value={chapter.title} 
+                                            onChange={(e) => handleChapterUpdate(chapter, 'title', e.target.value)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="h-8 w-full" 
+                                        />
+                                    ) : (
+                                        <>
+                                            {chapter.title}
+                                            <ChevronDown size={14} className={`text-muted-foreground transition-transform ${expandedChapter === chapter.id ? 'rotate-180' : ''}`} />
+                                        </>
+                                    )}
+                                </div>
+                                <div className="col-span-2 text-xs text-muted-foreground font-mono">
                                     {chapter.startPage} - {chapter.endPage}
-                                </span>
-                            </TableCell>
-                            <TableCell>
-                                <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">
-                                    <Check size={10} className="mr-1" /> Ready
-                                </Badge>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                                </div>
+                                <div className="col-span-1">
+                                    <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">
+                                        <Check size={10} className="mr-1" /> Ready
+                                    </Badge>
+                                </div>
+                            </div>
+                        </CollapsibleTrigger>
+                        
+                        <CollapsibleContent className="bg-muted/10 border-t p-4">
+                            {chapterDetails && expandedChapter === chapter.id ? (
+                                <div className="grid grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        <div>
+                                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
+                                                <Scale size={14} /> Case Law Found
+                                            </h4>
+                                            {chapterDetails.cases.length > 0 ? (
+                                                <ScrollArea className="h-[200px] border rounded-md p-2 bg-white dark:bg-neutral-900">
+                                                    <ul className="space-y-1">
+                                                        {chapterDetails.cases.map((c, i) => (
+                                                            <li key={i} className="text-xs py-1 border-b border-dashed last:border-0">{c}</li>
+                                                        ))}
+                                                    </ul>
+                                                </ScrollArea>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground italic">No cases cited in this chapter</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
+                                                <ScrollText size={14} /> Statutory References
+                                            </h4>
+                                             {chapterDetails.statutes.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1 max-h-[100px] overflow-y-auto">
+                                                    {chapterDetails.statutes.map((s, i) => (
+                                                        <Badge key={i} variant="secondary" className="text-[10px] h-5">{s}</Badge>
+                                                    ))}
+                                                </div>
+                                             ) : (
+                                                <p className="text-xs text-muted-foreground italic">No statutory references found</p>
+                                             )}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
+                                            <Eye size={14} /> Content Preview
+                                        </h4>
+                                        <div className="text-xs text-muted-foreground font-mono bg-muted/30 p-3 rounded-md border h-[300px] overflow-y-auto whitespace-pre-wrap">
+                                            {chapterDetails.textPreview}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center py-8">
+                                    <span className="loading loading-spinner loading-sm"></span> Loading details...
+                                </div>
+                            )}
+                        </CollapsibleContent>
+                    </Collapsible>
+                ))}
+            </div>
         </CardContent>
       </Card>
     </div>
