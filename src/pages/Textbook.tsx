@@ -4,10 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Upload, Book, FileText, Check, Trash2, Edit2, Loader2, Save } from "lucide-react";
+import { Upload, Trash2, Edit2, Loader2, Save, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db, Textbook as ITextbook, Chapter as IChapter } from "@/lib/db";
-import { extractTextFromPDF, detectStructure, generateChunks, ParsedPage } from "@/lib/parser";
+import { detectStructureFromText, generateChunksFromText } from "@/lib/parser";
 import { v4 as uuidv4 } from 'uuid';
 import { useLiveQuery } from "dexie-react-hooks";
 import { useOutletContext } from "react-router-dom";
@@ -55,52 +55,58 @@ const TextbookPage = () => {
 
     setIsProcessing(true);
     setProgress(10);
-    setStatus("Extracting text (this may take a while)...");
+    setStatus("Reading file...");
 
     try {
+        const text = await file.text();
         const textbookId = uuidv4();
         
-        // 1. Extract
-        const pages = await extractTextFromPDF(file, (current, total) => {
-            setProgress(10 + Math.floor((current / total) * 50)); // 10% to 60%
-        });
+        setStatus("Analyzing structure...");
+        setProgress(30);
         
-        setStatus("Detecting structure...");
-        setProgress(70);
+        // 1. Structure
+        const structure = detectStructureFromText(text);
         
-        // 2. Structure
-        const structure = detectStructure(pages);
-        
-        // 3. Save Textbook
+        setStatus("Saving textbook...");
+        setProgress(50);
+
+        // 2. Save Textbook
         const newTextbook: ITextbook = {
             id: textbookId,
-            userId: userId, // Bind to current user
-            title: file.name.replace('.pdf', ''),
+            userId: userId,
+            title: file.name.replace('.txt', ''),
             fileName: file.name,
-            totalPages: pages.length,
+            totalPages: Math.ceil(text.length / 3000), // Approximation for display
             uploadDate: new Date(),
             processed: true
         };
         
         await db.textbooks.add(newTextbook);
         
-        // 4. Save Chapters
+        // 3. Save Chapters
         const newChapters = structure.chapters.map(c => ({
             id: uuidv4(),
             textbookId,
             number: c.number,
             title: c.title,
-            startPage: c.startPage,
-            endPage: c.endPage
+            startPage: c.startLine, // We use Line numbers as proxies for pages in text mode
+            endPage: c.endLine
         }));
         
         await db.chapters.bulkAdd(newChapters);
         
-        setStatus("Generating chunks...");
-        setProgress(90);
+        setStatus("Indexing content (Case Law & Statutes)...");
+        setProgress(70);
 
-        // 5. Generate & Save Chunks (Backgroundish)
-        const chunks = generateChunks(pages, newChapters, textbookId);
+        // 4. Generate & Save Chunks
+        // We need to map the newChapters back to the structure the chunker expects
+        // But here we can pass the ID-hydrated chapters directly if we modify the helper or just map
+        const chunks = generateChunksFromText(text, newChapters.map(nc => ({
+            ...nc,
+            startLine: nc.startPage,
+            endLine: nc.endPage
+        })), textbookId);
+
         await db.chunks.bulkAdd(chunks);
         
         setProgress(100);
@@ -109,7 +115,7 @@ const TextbookPage = () => {
         
     } catch (err) {
         console.error(err);
-        setStatus("Error processing PDF: " + err);
+        setStatus("Error processing file: " + err);
     } finally {
         setIsProcessing(false);
     }
@@ -161,16 +167,17 @@ const TextbookPage = () => {
             ) : (
                 <>
                     <div className="w-16 h-16 bg-secondary/50 rounded-full flex items-center justify-center mb-4">
-                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <FileText className="h-8 w-8 text-muted-foreground" />
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">Upload PDF Textbook</h3>
+                    <h3 className="text-lg font-semibold mb-2">Upload Textbook (Text File)</h3>
                     <p className="text-muted-foreground max-w-sm mb-6">
-                    Parsing happens entirely in your browser. No data leaves your device.
+                    Please upload the <b>Fundamentals of Corporate Tax</b> text file (.txt).
+                    We will auto-detect chapters, case law citations, and statutory references.
                     </p>
                     <div className="flex flex-col gap-4 w-full max-w-xs">
                     <div className="grid w-full max-w-sm items-center gap-1.5">
                         <Label htmlFor="textbook">Select File</Label>
-                        <Input id="textbook" type="file" accept=".pdf" onChange={handleUpload} />
+                        <Input id="textbook" type="file" accept=".txt" onChange={handleUpload} />
                     </div>
                     </div>
                 </>
@@ -194,7 +201,7 @@ const TextbookPage = () => {
                             <div className="flex justify-between items-start">
                                 <div className="overflow-hidden">
                                     <p className="font-medium truncate">{book.title}</p>
-                                    <p className="text-xs text-muted-foreground">{book.totalPages} Pages</p>
+                                    <p className="text-xs text-muted-foreground">Processed {new Date(book.uploadDate).toLocaleDateString()}</p>
                                 </div>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(book.id); }}>
                                     <Trash2 size={14} />
@@ -216,7 +223,7 @@ const TextbookPage = () => {
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>
                             <CardTitle>{activeTextbook.title}</CardTitle>
-                            <CardDescription>Table of Contents</CardDescription>
+                            <CardDescription>Detected Chapters & Structure</CardDescription>
                         </div>
                         <div className="flex gap-2">
                             {isEditing ? (
@@ -236,8 +243,8 @@ const TextbookPage = () => {
                                 <TableRow>
                                     <TableHead className="w-[80px]">Ch #</TableHead>
                                     <TableHead>Title</TableHead>
-                                    <TableHead className="w-[100px]">Start Page</TableHead>
-                                    <TableHead className="w-[100px]">End Page</TableHead>
+                                    <TableHead className="w-[100px]">Start Line</TableHead>
+                                    <TableHead className="w-[100px]">End Line</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
