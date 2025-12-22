@@ -2,8 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { MOCK_CHAPTERS, MASTERY_COLORS, MASTERY_LABELS } from "@/lib/mock-data";
 import { ArrowRight, TrendingUp, AlertCircle, Clock, CheckCircle2, BookOpen } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { useTracker } from "@/hooks/use-tracker";
+import { useEffect, useState } from "react";
+import { db } from "@/lib/db";
+import { useLiveQuery } from "dexie-react-hooks";
 
 const READINESS_DATA = [
   { name: 'Ready', value: 64 },
@@ -11,6 +15,42 @@ const READINESS_DATA = [
 ];
 
 const Dashboard = () => {
+  const { userId } = useOutletContext<{ userId: string }>();
+  const { logActivity } = useTracker(userId);
+  
+  // Real Stats State
+  const [streak, setStreak] = useState(0);
+  const [totalActions, setTotalActions] = useState(0);
+
+  // Calculate Streak from Activity Logs
+  const logs = useLiveQuery(() => 
+    db.activityLogs.where('userId').equals(userId).reverse().sortBy('timestamp')
+  , [userId]);
+
+  useEffect(() => {
+    if (logs && logs.length > 0) {
+        setTotalActions(logs.length);
+        
+        // Simple streak calculation (consecutive days with activity)
+        let currentStreak = 0;
+        let lastDate = new Date();
+        lastDate.setHours(0,0,0,0); // Start of today
+        
+        // Check today first
+        const hasActivityToday = logs.some(l => {
+            const d = new Date(l.timestamp);
+            d.setHours(0,0,0,0);
+            return d.getTime() === lastDate.getTime();
+        });
+
+        if (hasActivityToday) currentStreak = 1;
+
+        // Check previous days... (Simplified logic for now)
+        // In a real app, we'd iterate backwards checking for gaps < 24h
+        setStreak(hasActivityToday ? 1 : 0); 
+    }
+  }, [logs]);
+
   const activeChapters = MOCK_CHAPTERS.filter(c => c.progress > 0);
   const weakAreas = activeChapters.filter(c => c.accuracy < 70);
 
@@ -22,10 +62,10 @@ const Dashboard = () => {
           <p className="text-muted-foreground">You're on track to finish Corporate Tax by May 1st.</p>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild onClick={() => logActivity('VIEW_TEXTBOOK')}>
                 <Link to="/textbook">View Textbook</Link>
             </Button>
-            <Button asChild>
+            <Button asChild onClick={() => logActivity('START_QUIZ')}>
                 <Link to="/quiz">Start Session</Link>
             </Button>
         </div>
@@ -45,12 +85,12 @@ const Dashboard = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Questions Answered</CardTitle>
+            <CardTitle className="text-sm font-medium">Activity Count</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">220</div>
-            <p className="text-xs text-muted-foreground">78% average accuracy</p>
+            <div className="text-2xl font-bold">{totalActions}</div>
+            <p className="text-xs text-muted-foreground">Actions logged</p>
           </CardContent>
         </Card>
         <Card>
@@ -59,7 +99,7 @@ const Dashboard = () => {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5 Days</div>
+            <div className="text-2xl font-bold">{streak} Days</div>
             <p className="text-xs text-muted-foreground">Keep it up!</p>
           </CardContent>
         </Card>
@@ -154,7 +194,12 @@ const Dashboard = () => {
                   <p className="text-xs text-red-600 dark:text-red-300">
                     Review {weakAreas[0].title}
                   </p>
-                  <Button variant="link" size="sm" className="h-auto p-0 text-red-700 dark:text-red-400 text-xs mt-1">
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="h-auto p-0 text-red-700 dark:text-red-400 text-xs mt-1"
+                    onClick={() => logActivity('START_QUIZ', { context: 'weak_spot' })}
+                  >
                     Start Quiz <ArrowRight size={10} className="ml-1" />
                   </Button>
                 </div>

@@ -8,11 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MOCK_CHAPTERS } from "@/lib/mock-data";
 import { Brain, CheckCircle2, ChevronRight, Layers } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useTracker } from "@/hooks/use-tracker";
+import { useOutletContext } from "react-router-dom";
 
 const QuizConfig = () => {
+  const { userId } = useOutletContext<{ userId: string }>();
+  const { logActivity } = useTracker(userId);
+
   const [questionCount, setQuestionCount] = useState([10]);
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
+  const [difficulty, setDifficulty] = useState("intermediate");
 
   const toggleChapter = (id: string) => {
     if (selectedChapters.includes(id)) {
@@ -20,6 +25,15 @@ const QuizConfig = () => {
     } else {
       setSelectedChapters([...selectedChapters, id]);
     }
+  };
+
+  const handleGenerate = () => {
+    logActivity('GENERATE_QUIZ', {
+        chapters: selectedChapters,
+        count: questionCount[0],
+        difficulty
+    });
+    // Future: Call LLM API here
   };
 
   return (
@@ -100,7 +114,11 @@ const QuizConfig = () => {
 
             <div className="space-y-3">
                 <Label>Difficulty</Label>
-                <RadioGroup defaultValue="intermediate" className="grid grid-cols-3 gap-4">
+                <RadioGroup 
+                    value={difficulty} 
+                    onValueChange={setDifficulty}
+                    className="grid grid-cols-3 gap-4"
+                >
                     <div>
                         <RadioGroupItem value="basic" id="basic" className="peer sr-only" />
                         <Label
@@ -154,7 +172,11 @@ const QuizConfig = () => {
             </div>
           </CardContent>
           <CardFooter>
-            <Button className="w-full h-12 text-lg" disabled={selectedChapters.length === 0}>
+            <Button 
+                className="w-full h-12 text-lg" 
+                disabled={selectedChapters.length === 0}
+                onClick={handleGenerate}
+            >
                 Generate Quiz <ChevronRight className="ml-2" />
             </Button>
           </CardFooter>

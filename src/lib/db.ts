@@ -2,13 +2,13 @@ import Dexie, { Table } from 'dexie';
 
 export interface Textbook {
   id: string;
-  userId: string; // Added for multi-user support
+  userId: string;
   title: string;
   fileName: string;
   totalPages: number;
   uploadDate: Date;
   processed: boolean;
-  fileData?: Blob;
+  fileData?: Blob; 
 }
 
 export interface Chapter {
@@ -20,22 +20,10 @@ export interface Chapter {
   endPage: number;
 }
 
-export interface Section {
-  id: string;
-  textbookId: string;
-  chapterId: string;
-  type: 'section' | 'subsection' | 'subsubsection';
-  label: string;      // "A", "1", "a"
-  title: string;
-  sequenceOrder: number;
-}
-
 export interface Chunk {
   id: string;
   textbookId: string;
   chapterId: string;
-  sectionId?: string;
-  sectionContext?: string;
   content: string;
   pageNumbers: number[];
   tokenCount: number;
@@ -44,34 +32,29 @@ export interface Chunk {
   sequenceOrder: number;
 }
 
+export interface ActivityLog {
+  id?: number; // Auto-increment
+  userId: string;
+  type: 'LOGIN' | 'VIEW_TEXTBOOK' | 'START_QUIZ' | 'GENERATE_QUIZ' | 'COMPLETE_QUIZ' | 'READ_CHAPTER' | 'COURSE_RESET';
+  details?: string; // JSON string for extra metadata (e.g., chapter ID, score)
+  timestamp: Date;
+}
+
 export class TaxPrepDB extends Dexie {
   textbooks!: Table<Textbook>;
   chapters!: Table<Chapter>;
-  sections!: Table<Section>;
   chunks!: Table<Chunk>;
+  activityLogs!: Table<ActivityLog>;
 
   constructor() {
     super('TaxPrepDB');
-    // Version 1 (Old)
-    this.version(1).stores({
-      textbooks: 'id, title',
-      chapters: 'id, textbookId, number',
-      chunks: 'id, textbookId, chapterId, sequenceOrder'
-    });
-
-    // Version 2 (adds userId index)
-    this.version(2).stores({
-      textbooks: 'id, userId, title',
-      chapters: 'id, textbookId, number',
-      chunks: 'id, textbookId, chapterId, sequenceOrder'
-    });
-
-    // Version 3 (adds sections table)
+    
+    // Version 3: Added activityLogs
     this.version(3).stores({
       textbooks: 'id, userId, title',
       chapters: 'id, textbookId, number',
-      sections: 'id, textbookId, chapterId, sequenceOrder',
-      chunks: 'id, textbookId, chapterId, sectionId, sequenceOrder'
+      chunks: 'id, textbookId, chapterId, sequenceOrder',
+      activityLogs: '++id, userId, type, timestamp'
     });
   }
 }
