@@ -1,218 +1,353 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MOCK_CHAPTERS, MASTERY_COLORS, MASTERY_LABELS } from "@/lib/mock-data";
-import { ArrowRight, TrendingUp, AlertCircle, Clock, CheckCircle2, BookOpen } from "lucide-react";
+import { ArrowRight, TrendingUp, AlertCircle, Clock, CheckCircle2, BookOpen, Flame, Target, Zap, Trophy } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { useTracker } from "@/hooks/use-tracker";
-import { useEffect, useState } from "react";
-import { db } from "@/lib/db";
+import { useEffect, useState, useMemo } from "react";
+import { db, Chapter, ChapterProgress, getMasteryLevel, getMasteryColor, MasteryLevel, Streak } from "@/lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
+import { TEXTBOOK_STRUCTURE, countContentTypes } from "@/lib/textbook/structure";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
-const READINESS_DATA = [
-  { name: 'Ready', value: 64 },
-  { name: 'Remaining', value: 36 },
-];
+// Mastery level styling
+const MASTERY_STYLES: Record<MasteryLevel, { bg: string; text: string; label: string }> = {
+  'NOT_STARTED': { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', label: 'Not Started' },
+  'NEEDS_WORK': { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-600 dark:text-red-400', label: 'Needs Work' },
+  'DEVELOPING': { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-600 dark:text-yellow-400', label: 'Developing' },
+  'PROFICIENT': { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-600 dark:text-green-400', label: 'Proficient' },
+  'MASTERED': { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', label: 'Mastered' },
+};
 
 const Dashboard = () => {
   const { userId } = useOutletContext<{ userId: string }>();
   const { logActivity } = useTracker(userId);
-  
-  // Real Stats State
-  const [streak, setStreak] = useState(0);
-  const [totalActions, setTotalActions] = useState(0);
 
-  // Calculate Streak from Activity Logs
-  const logs = useLiveQuery(() => 
-    db.activityLogs.where('userId').equals(userId).reverse().sortBy('timestamp')
-  , [userId]);
+  // Get textbook and chapters from database
+  const textbook = useLiveQuery(() =>
+    db.textbooks.where('userId').equals(userId).first()
+    , [userId]);
 
-  useEffect(() => {
-    if (logs && logs.length > 0) {
-        setTotalActions(logs.length);
-        
-        // Simple streak calculation (consecutive days with activity)
-        let currentStreak = 0;
-        let lastDate = new Date();
-        lastDate.setHours(0,0,0,0); // Start of today
-        
-        // Check today first
-        const hasActivityToday = logs.some(l => {
-            const d = new Date(l.timestamp);
-            d.setHours(0,0,0,0);
-            return d.getTime() === lastDate.getTime();
-        });
+  const chapters = useLiveQuery(() =>
+    textbook ? db.chapters.where('textbookId').equals(textbook.id).sortBy('number') : []
+    , [textbook]);
 
-        if (hasActivityToday) currentStreak = 1;
+  const chapterProgress = useLiveQuery(() =>
+    textbook ? db.chapterProgress.where('textbookId').equals(textbook.id).toArray() : []
+    , [textbook]);
 
-        // Check previous days... (Simplified logic for now)
-        // In a real app, we'd iterate backwards checking for gaps < 24h
-        setStreak(hasActivityToday ? 1 : 0); 
-    }
-  }, [logs]);
+  const streak = useLiveQuery(() =>
+    db.streaks.where('userId').equals(userId).first()
+    , [userId]);
 
-  const activeChapters = MOCK_CHAPTERS.filter(c => c.progress > 0);
-  const weakAreas = activeChapters.filter(c => c.accuracy < 70);
+  const quizAttempts = useLiveQuery(() =>
+    db.quizAttempts.where('userId').equals(userId).toArray()
+    , [userId]);
+
+  const answers = useLiveQuery(() =>
+    db.answers.toArray()
+    , []);
+
+  // Calculate stats from hardcoded structure
+  const stats = countContentTypes();
+
+  // Calculate exam readiness
+  const examReadiness = useMemo(() => {
+    if (!chapters || chapters.length === 0) return { score: 0, label: 'Not Started' };
+
+    const progressMap = new Map((chapterProgress || []).map(p => [p.chapterId, p]));
+
+    let totalMastery = 0;
+    let chaptersWithProgress = 0;
+
+    chapters.forEach(chapter => {
+      const progress = progressMap.get(chapter.id);
+      if (progress && progress.masteryScore > 0) {
+        totalMastery += progress.masteryScore;
+        chaptersWithProgress++;
+      }
+    });
+
+    const coverage = chaptersWithProgress / chapters.length;
+    const avgMastery = chaptersWithProgress > 0 ? totalMastery / chaptersWithProgress : 0;
+
+    // Exam readiness formula: 25% coverage + 50% mastery + 25% recency (simplified)
+    const score = (coverage * 0.25) + (avgMastery * 0.50) + (coverage * 0.25);
+    const percentage = Math.round(score * 100);
+
+    let label = 'Not Ready';
+    if (percentage >= 85) label = 'Exam Ready! 🎉';
+    else if (percentage >= 70) label = 'On Track';
+    else if (percentage >= 50) label = 'Getting There';
+    else if (percentage > 0) label = 'Just Starting';
+
+    return { score: percentage, label };
+  }, [chapters, chapterProgress]);
+
+  // Get chapter progress
+  const getChapterMastery = (chapterId: string) => {
+    const progress = chapterProgress?.find(p => p.chapterId === chapterId);
+    return {
+      score: progress?.masteryScore || 0,
+      level: progress?.masteryLevel || 'NOT_STARTED' as MasteryLevel,
+      questions: progress?.questionsAttempted || 0,
+      accuracy: progress?.questionsAttempted ? Math.round((progress.questionsCorrect / progress.questionsAttempted) * 100) : 0
+    };
+  };
+
+  // Find weak chapters
+  const weakChapters = useMemo(() => {
+    if (!chapters || !chapterProgress) return [];
+    return chapterProgress
+      .filter(p => p.masteryLevel === 'NEEDS_WORK' || (p.masteryScore > 0 && p.masteryScore < 0.6))
+      .map(p => {
+        const chapter = chapters.find(c => c.id === p.chapterId);
+        return chapter ? { ...chapter, mastery: p } : null;
+      })
+      .filter(Boolean)
+      .slice(0, 3);
+  }, [chapters, chapterProgress]);
+
+  // Calculate total questions answered
+  const totalQuestions = answers?.length || 0;
+  const currentStreak = streak?.currentStreak || 0;
+
+  // Readiness chart data
+  const readinessData = [
+    { name: 'Ready', value: examReadiness.score },
+    { name: 'Remaining', value: 100 - examReadiness.score },
+  ];
+
+  if (!textbook) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <BookOpen className="h-16 w-16 text-muted-foreground animate-pulse" />
+        <h2 className="text-xl font-semibold">Loading Dashboard...</h2>
+        <p className="text-muted-foreground">Please wait or visit the <Link to="/textbook" className="text-primary underline">Textbook</Link> page first.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Welcome Back</h1>
-          <p className="text-muted-foreground">You're on track to finish Corporate Tax by May 1st.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Corporate Tax Dashboard</h1>
+          <p className="text-muted-foreground">
+            {examReadiness.score > 0
+              ? `${examReadiness.label} - Keep up the great work!`
+              : 'Start studying to track your progress'}
+          </p>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline" asChild onClick={() => logActivity('VIEW_TEXTBOOK')}>
-                <Link to="/textbook">View Textbook</Link>
-            </Button>
-            <Button asChild onClick={() => logActivity('START_QUIZ')}>
-                <Link to="/quiz">Start Session</Link>
-            </Button>
+          <Button variant="outline" asChild>
+            <Link to="/textbook">View Textbook</Link>
+          </Button>
+          <Button asChild className="bg-gradient-to-r from-blue-600 to-indigo-600">
+            <Link to="/quiz">
+              <Zap size={16} className="mr-2" />
+              Start Quiz
+            </Link>
+          </Button>
         </div>
       </div>
 
       {/* Top Stats Row */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Exam Readiness</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">64%</div>
-            <p className="text-xs text-muted-foreground">+2% from yesterday</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Activity Count</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalActions}</div>
-            <p className="text-xs text-muted-foreground">Actions logged</p>
-          </CardContent>
-        </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/30 dark:to-neutral-900 border-orange-100 dark:border-orange-900/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Study Streak</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Flame className="h-5 w-5 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{streak} Days</div>
-            <p className="text-xs text-muted-foreground">Keep it up!</p>
+            <div className="text-3xl font-bold text-orange-600">{currentStreak} Days</div>
+            <p className="text-xs text-muted-foreground">
+              {currentStreak > 0 ? 'Keep it going! 🔥' : 'Start studying today!'}
+            </p>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/30 dark:to-neutral-900 border-purple-100 dark:border-purple-900/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Weak Areas</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Questions Answered</CardTitle>
+            <CheckCircle2 className="h-5 w-5 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{weakAreas.length}</div>
-            <p className="text-xs text-muted-foreground">Focus on these next</p>
+            <div className="text-3xl font-bold text-purple-600">{totalQuestions}</div>
+            <p className="text-xs text-muted-foreground">
+              of {stats.problems}+ practice problems
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-white dark:from-green-950/30 dark:to-neutral-900 border-green-100 dark:border-green-900/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Chapters Covered</CardTitle>
+            <BookOpen className="h-5 w-5 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-600">
+              {chapterProgress?.filter(p => p.masteryScore > 0).length || 0} / {chapters?.length || 15}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              chapters with activity
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-red-50 to-white dark:from-red-950/30 dark:to-neutral-900 border-red-100 dark:border-red-900/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Weak Areas</CardTitle>
+            <AlertCircle className="h-5 w-5 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-600">{weakChapters.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {weakChapters.length > 0 ? 'Focus on these next' : 'No weak spots yet!'}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-7">
+      <div className="grid gap-6 lg:grid-cols-7">
         {/* Main Progress Area */}
-        <Card className="md:col-span-5">
+        <Card className="lg:col-span-5">
           <CardHeader>
-            <CardTitle>Course Progress</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Target size={20} />
+              Chapter Progress
+            </CardTitle>
             <CardDescription>
-              Your mastery across all chapters based on coverage and accuracy.
+              Your mastery across all {chapters?.length || 15} chapters
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {MOCK_CHAPTERS.map((chapter) => (
-                <div key={chapter.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium truncate max-w-[200px] md:max-w-md">
-                      {chapter.number}. {chapter.title}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${MASTERY_COLORS[chapter.masteryLevel]} bg-opacity-90`}>
-                      {MASTERY_LABELS[chapter.masteryLevel]}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${MASTERY_COLORS[chapter.masteryLevel]} transition-all duration-500`} 
-                      style={{ width: `${Math.max(chapter.progress, 5)}%` }} 
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{chapter.questionsAnswered} questions</span>
-                    <span>{chapter.accuracy > 0 ? `${chapter.accuracy}% Accuracy` : 'No attempts'}</span>
-                  </div>
+              {TEXTBOOK_STRUCTURE.map((part) => (
+                <div key={part.number} className="space-y-3">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Part {part.number}: {part.title}
+                  </h3>
+                  {part.chapters.map((chapterDef) => {
+                    const chapter = chapters?.find(c => c.number === chapterDef.number);
+                    if (!chapter) return null;
+
+                    const mastery = getChapterMastery(chapter.id);
+                    const style = MASTERY_STYLES[mastery.level];
+
+                    return (
+                      <div key={chapter.id} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium truncate max-w-[200px] md:max-w-md">
+                            Ch {chapter.number}. {chapter.title}
+                          </span>
+                          <Badge className={`${style.bg} ${style.text} border-0`}>
+                            {style.label}
+                          </Badge>
+                        </div>
+                        <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 ${mastery.level === 'NOT_STARTED' ? 'bg-gray-300' :
+                                mastery.level === 'NEEDS_WORK' ? 'bg-red-500' :
+                                  mastery.level === 'DEVELOPING' ? 'bg-yellow-500' :
+                                    mastery.level === 'PROFICIENT' ? 'bg-green-500' :
+                                      'bg-blue-500'
+                              }`}
+                            style={{ width: `${Math.max(mastery.score * 100, 3)}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{mastery.questions} questions</span>
+                          <span>{mastery.accuracy > 0 ? `${mastery.accuracy}% accuracy` : 'No attempts'}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Side Panel: Exam Readiness Visualization */}
-        <Card className="md:col-span-2">
+        {/* Side Panel: Exam Readiness */}
+        <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Readiness Score</CardTitle>
-            <CardDescription>Weighted calculation</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy size={20} />
+              Exam Readiness
+            </CardTitle>
+            <CardDescription>{examReadiness.label}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center">
-            <div className="h-[200px] w-full relative">
+            <div className="h-[180px] w-full relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={READINESS_DATA}
+                    data={readinessData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={55}
+                    outerRadius={75}
                     startAngle={90}
                     endAngle={-270}
                     dataKey="value"
                   >
-                    <Cell fill="hsl(var(--primary))" />
-                    <Cell fill="hsl(var(--secondary))" />
+                    <Cell fill={examReadiness.score >= 70 ? '#22c55e' : examReadiness.score >= 40 ? '#f59e0b' : '#6b7280'} />
+                    <Cell fill="#e5e7eb" />
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-bold">64</span>
+                <span className="text-4xl font-bold">{examReadiness.score}</span>
                 <span className="text-xs text-muted-foreground">SCORE</span>
               </div>
             </div>
-            
-            <div className="mt-6 w-full space-y-3">
-              <h4 className="text-sm font-semibold mb-2">Next Steps</h4>
-              {weakAreas.length > 0 ? (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-md">
+
+            <div className="mt-4 w-full space-y-3">
+              <h4 className="text-sm font-semibold">Recommended Actions</h4>
+
+              {weakChapters.length > 0 && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 rounded-lg">
                   <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-medium text-sm mb-1">
                     <AlertCircle size={14} />
-                    <span>Improve Weak Spot</span>
+                    <span>Focus: Weak Spot</span>
                   </div>
-                  <p className="text-xs text-red-600 dark:text-red-300">
-                    Review {weakAreas[0].title}
+                  <p className="text-xs text-red-600 dark:text-red-300 mb-2">
+                    Review Ch {(weakChapters[0] as any).number}
                   </p>
-                  <Button 
-                    variant="link" 
-                    size="sm" 
-                    className="h-auto p-0 text-red-700 dark:text-red-400 text-xs mt-1"
-                    onClick={() => logActivity('START_QUIZ', { context: 'weak_spot' })}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-red-700 border-red-200 hover:bg-red-100"
+                    asChild
                   >
-                    Start Quiz <ArrowRight size={10} className="ml-1" />
+                    <Link to="/quiz">
+                      Take Quiz <ArrowRight size={12} className="ml-1" />
+                    </Link>
                   </Button>
                 </div>
-              ) : null}
-              
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/50 rounded-md">
+              )}
+
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/50 rounded-lg">
                 <div className="flex items-center gap-2 text-blue-700 dark:text-blue-400 font-medium text-sm mb-1">
                   <BookOpen size={14} />
-                  <span>Continue Reading</span>
+                  <span>Continue Learning</span>
                 </div>
-                <p className="text-xs text-blue-600 dark:text-blue-300">
-                  Chapter 4: Non-Liquidating Distributions
+                <p className="text-xs text-blue-600 dark:text-blue-300 mb-2">
+                  Read Chapter 1 to get started
                 </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-blue-700 border-blue-200 hover:bg-blue-100"
+                  asChild
+                >
+                  <Link to="/textbook">
+                    Open Textbook <ArrowRight size={12} className="ml-1" />
+                  </Link>
+                </Button>
               </div>
             </div>
           </CardContent>

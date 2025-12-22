@@ -1,14 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Check, BookOpen, Scale, ScrollText, Save, Edit2, ChevronDown, Eye } from "lucide-react";
-import { useState, useEffect } from "react";
-import { db, Textbook as ITextbook, Chapter as IChapter } from "@/lib/db";
-import { detectStructureFromText, generateChunksFromText } from "@/lib/parser";
+import { Check, BookOpen, Scale, ScrollText, BookOpenCheck, ChevronDown, FileText, Gavel, AlertCircle, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { db, Textbook as ITextbook, Chapter as IChapter, Part as IPart, Section as ISection, ContentMarker } from "@/lib/db";
+import { TEXTBOOK_STRUCTURE, getAllChapters, getPartForChapter, getSectionEndPage, countContentTypes, SectionDef } from "@/lib/textbook/structure";
+import { extractChapterPages, ChapterPage } from "@/lib/parser";
 import { v4 as uuidv4 } from 'uuid';
 import { useLiveQuery } from "dexie-react-hooks";
 import { useOutletContext } from "react-router-dom";
@@ -16,415 +14,610 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { useTracker } from "@/hooks/use-tracker";
+import { EnhancedReader } from "@/components/reader";
 
 const TextbookPage = () => {
-  const { userId } = useOutletContext<{ userId: string }>();
-  const { logActivity } = useTracker(userId);
-  
-  const textbooks = useLiveQuery(
-    () => db.textbooks.where('userId').equals(userId).toArray(),
-    [userId]
-  );
-  
-  const masterBook = textbooks?.[0];
-  const [chapters, setChapters] = useState<IChapter[]>([]);
-  
-  // Stats
-  const [stats, setStats] = useState({ cases: 0, statutes: 0, chunks: 0 });
+    const { userId } = useOutletContext<{ userId: string }>();
+    const { logActivity } = useTracker(userId);
 
-  // Upload/Processing State
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState("");
-  
-  // Editing State
-  const [isEditing, setIsEditing] = useState(false);
+    const textbooks = useLiveQuery(
+        () => db.textbooks.where('userId').equals(userId).toArray(),
+        [userId]
+    );
 
-  // Deep Dive Inspection State
-  const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
-  const [chapterDetails, setChapterDetails] = useState<{cases: string[], statutes: string[], textPreview: string} | null>(null);
+    const masterBook = textbooks?.[0];
+    const [parts, setParts] = useState<IPart[]>([]);
+    const [chapters, setChapters] = useState<IChapter[]>([]);
+    const [contentMarkers, setContentMarkers] = useState<ContentMarker[]>([]);
 
-  useEffect(() => {
-    if (masterBook) {
-        db.chapters.where('textbookId').equals(masterBook.id).toArray().then((chaps) => {
-             setChapters(chaps.sort((a,b) => a.number - b.number));
-        });
-        
-        db.chunks.where('textbookId').equals(masterBook.id).toArray().then(chunks => {
-            let cases = 0;
-            let statutes = 0;
-            chunks.forEach(c => {
-                cases += c.caseRefs?.length || 0;
-                statutes += c.statutoryRefs?.length || 0;
+    // Stats from the hardcoded structure
+    const stats = countContentTypes();
+
+    // Upload/Processing State
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [status, setStatus] = useState("");
+
+    // Deep Dive Inspection State
+    const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
+    const [expandedPart, setExpandedPart] = useState<string | null>("part-ONE");
+
+    // Full Content Reading State (Section-based)
+    const [readingSection, setReadingSection] = useState<ISection | null>(null);
+    const [readingChapter, setReadingChapter] = useState<IChapter | null>(null);
+    const [sectionChunks, setSectionChunks] = useState<{ content: string; pageNumbers: number[] }[]>([]);
+    const [loadingContent, setLoadingContent] = useState(false);
+    const [allSections, setAllSections] = useState<ISection[]>([]);
+
+    // Load data from database
+    useEffect(() => {
+        if (masterBook) {
+            db.parts.where('textbookId').equals(masterBook.id).toArray().then(setParts);
+            db.chapters.where('textbookId').equals(masterBook.id).toArray().then((chaps) => {
+                setChapters(chaps.sort((a, b) => a.number - b.number));
             });
-            setStats({ cases, statutes, chunks: chunks.length });
-        });
-    } else {
-        setChapters([]);
-        setStats({ cases: 0, statutes: 0, chunks: 0 });
-    }
-  }, [masterBook]);
+            db.contentMarkers.where('textbookId').equals(masterBook.id).toArray().then(setContentMarkers);
+        } else {
+            setParts([]);
+            setChapters([]);
+            setContentMarkers([]);
+        }
+    }, [masterBook]);
 
-  // Load details when expanding a chapter
-  useEffect(() => {
-    if (expandedChapter && masterBook) {
-        logActivity('READ_CHAPTER', { chapterId: expandedChapter });
-        setChapterDetails(null); 
-        db.chunks
-            .where('chapterId').equals(expandedChapter)
-            .toArray()
-            .then(chunks => {
-                const cases = new Set<string>();
-                const statutes = new Set<string>();
-                let textPreview = "";
+    // Initialize from hardcoded structure
+    const initializeCourse = async () => {
+        setIsProcessing(true);
+        setProgress(5);
+        setStatus("Loading Source Text...");
 
-                chunks.forEach((c, idx) => {
-                    c.caseRefs?.forEach(ref => cases.add(ref));
-                    c.statutoryRefs?.forEach(ref => statutes.add(ref));
-                    if(idx < 3) textPreview += c.content + "\n\n";
-                });
+        try {
+            // Verify the text file is available
+            const response = await fetch("/fundamentals.txt");
+            if (!response.ok) throw new Error("Failed to load source text file");
 
-                setChapterDetails({
-                    cases: Array.from(cases).sort(),
-                    statutes: Array.from(statutes).sort(),
-                    textPreview: textPreview.slice(0, 800) + "..."
-                });
+            const textbookId = uuidv4();
+
+            setStatus("Building Structure from TOC...");
+            setProgress(25);
+
+            const newTextbook: ITextbook = {
+                id: textbookId,
+                userId: userId,
+                title: "Fundamentals of Corporate Tax",
+                fileName: "fundamentals.txt",
+                totalPages: 735,
+                uploadDate: new Date(),
+                processed: true
+            };
+
+            // Transaction to populate database from hardcoded structure
+            await db.transaction('rw', [db.textbooks, db.parts, db.chapters, db.sections, db.contentMarkers], async () => {
+                // Clear old data for this user
+                const oldBooks = await db.textbooks.where('userId').equals(userId).toArray();
+                for (const b of oldBooks) {
+                    await db.parts.where('textbookId').equals(b.id).delete();
+                    await db.chapters.where('textbookId').equals(b.id).delete();
+                    await db.sections.where('textbookId').equals(b.id).delete();
+                    await db.contentMarkers.where('textbookId').equals(b.id).delete();
+                }
+                await db.textbooks.where('userId').equals(userId).delete();
+
+                setProgress(40);
+                setStatus("Creating Parts and Chapters...");
+
+                await db.textbooks.add(newTextbook);
+
+                // Create Parts from hardcoded structure
+                const newParts: IPart[] = TEXTBOOK_STRUCTURE.map(part => ({
+                    id: `part-${part.number}`,
+                    textbookId,
+                    number: part.number,
+                    title: part.title,
+                    startPage: part.startPage,
+                    endPage: part.endPage
+                }));
+                await db.parts.bulkAdd(newParts);
+
+                setProgress(50);
+                setStatus("Creating Chapters and Sections...");
+
+                // Create Chapters
+                const newChapters: IChapter[] = [];
+                const newSections: ISection[] = [];
+                const newMarkers: ContentMarker[] = [];
+
+                for (const part of TEXTBOOK_STRUCTURE) {
+                    for (const chapter of part.chapters) {
+                        const chapterId = `ch-${chapter.number}`;
+                        newChapters.push({
+                            id: chapterId,
+                            textbookId,
+                            partId: `part-${part.number}`,
+                            number: chapter.number,
+                            title: chapter.title,
+                            startPage: chapter.startPage,
+                            endPage: chapter.endPage
+                        });
+
+                        // Create Sections
+                        for (const section of chapter.sections) {
+                            const sectionId = `${chapterId}-${section.letter}`;
+                            const sectionEndPage = getSectionEndPage(chapter, section.letter);
+
+                            newSections.push({
+                                id: sectionId,
+                                textbookId,
+                                chapterId,
+                                letter: section.letter,
+                                title: section.title,
+                                startPage: section.startPage,
+                                endPage: sectionEndPage
+                            });
+
+                            // Extract content markers from section
+                            section.content?.forEach(c => {
+                                newMarkers.push({
+                                    id: uuidv4(),
+                                    textbookId,
+                                    chapterId,
+                                    sectionId,
+                                    type: c.type,
+                                    title: c.title,
+                                    startPage: c.page
+                                });
+                            });
+
+                            // Extract from subsections
+                            section.subsections?.forEach(sub => {
+                                sub.content?.forEach(c => {
+                                    newMarkers.push({
+                                        id: uuidv4(),
+                                        textbookId,
+                                        chapterId,
+                                        sectionId,
+                                        type: c.type,
+                                        title: c.title,
+                                        startPage: c.page
+                                    });
+                                });
+
+                                // Extract from sub-subsections
+                                sub.subsubsections?.forEach(subsub => {
+                                    subsub.content?.forEach(c => {
+                                        newMarkers.push({
+                                            id: uuidv4(),
+                                            textbookId,
+                                            chapterId,
+                                            sectionId,
+                                            type: c.type,
+                                            title: c.title,
+                                            startPage: c.page
+                                        });
+                                    });
+                                });
+                            });
+                        }
+                    }
+                }
+
+                await db.chapters.bulkAdd(newChapters);
+                await db.sections.bulkAdd(newSections);
+                await db.contentMarkers.bulkAdd(newMarkers);
+
+                setProgress(90);
             });
-    }
-  }, [expandedChapter, masterBook, logActivity]);
 
-  const handleInitializeCourse = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+            logActivity('VIEW_TEXTBOOK', { action: 'initialize' });
+            setProgress(100);
+            setStatus("Course Initialized Successfully");
+            toast.success(`Loaded ${getAllChapters().length} chapters with ${stats.problems} problems!`);
 
-    setIsProcessing(true);
-    setProgress(5);
-    setStatus("Loading Source Text...");
+        } catch (err) {
+            console.error(err);
+            setStatus("Error: " + err);
+            toast.error("Failed to load course material");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
 
-    try {
-        const text = await file.text();
-        const textbookId = uuidv4();
-        
-        setStatus("Analyzing Legal Structure...");
-        setProgress(25);
-        
-        const structure = detectStructureFromText(text);
-        
-        setStatus("Creating Master Record...");
-        setProgress(50);
+    // Auto-initialize if no book is found - use ref to prevent double-init
+    const hasInitialized = useRef(false);
+    useEffect(() => {
+        if (!masterBook && !isProcessing && !hasInitialized.current && textbooks !== undefined) {
+            hasInitialized.current = true;
+            initializeCourse();
+        }
+    }, [masterBook, textbooks]);
 
-        const newTextbook: ITextbook = {
-            id: textbookId,
-            userId: userId,
-            title: "Fundamentals of Corporate Tax",
-            fileName: file.name,
-            totalPages: Math.ceil(text.length / 3000), 
-            uploadDate: new Date(),
-            processed: true
-        };
-        
-        // Transaction to ensure clean state
-        await db.transaction('rw', db.textbooks, db.chapters, db.chunks, async () => {
-            // Clear old data for this user to enforce single-source
-            const oldBooks = await db.textbooks.where('userId').equals(userId).toArray();
-            for(const b of oldBooks) {
-                await db.chapters.where('textbookId').equals(b.id).delete();
-                await db.chunks.where('textbookId').equals(b.id).delete();
-            }
-            await db.textbooks.where('userId').equals(userId).delete();
+    // Reset course data
+    const resetCourseData = async () => {
+        if (masterBook) {
+            await db.transaction('rw', [db.textbooks, db.parts, db.chapters, db.sections, db.contentMarkers], async () => {
+                await db.parts.where('textbookId').equals(masterBook.id).delete();
+                await db.chapters.where('textbookId').equals(masterBook.id).delete();
+                await db.sections.where('textbookId').equals(masterBook.id).delete();
+                await db.contentMarkers.where('textbookId').equals(masterBook.id).delete();
+                await db.textbooks.delete(masterBook.id);
+            });
+            toast.info("Course data reset. Reinitializing...");
+        }
+    };
 
-            await db.textbooks.add(newTextbook);
-            
-            const newChapters = structure.chapters.map(c => ({
-                id: uuidv4(),
-                textbookId,
-                number: c.number,
-                title: c.title,
-                startPage: c.startLine,
-                endPage: c.endLine
+    // Load section content for enhanced reader
+    const loadSectionContent = async (section: ISection, chapter: IChapter) => {
+        setLoadingContent(true);
+        setReadingSection(section);
+        setReadingChapter(chapter);
+
+        try {
+            // Load all sections for this chapter for navigation
+            const chapterSections = await db.sections.where('chapterId').equals(chapter.id).sortBy('letter');
+            setAllSections(chapterSections);
+
+            // Fetch the source text
+            const response = await fetch("/fundamentals.txt");
+            if (!response.ok) throw new Error("Failed to load source text");
+
+            const text = await response.text();
+
+            // Extract pages for this section
+            const pages = extractChapterPages(text, section.startPage, section.endPage);
+
+            // Convert to chunks format
+            const chunks = pages.map(p => ({
+                content: p.content,
+                pageNumbers: [p.pageNumber]
             }));
-            
-            await db.chapters.bulkAdd(newChapters);
-            
-            // We need to pass the ID-hydrated chapters to the chunker
-            const chaptersForChunker = newChapters.map(nc => ({
-                id: nc.id,
-                number: nc.number,
-                title: nc.title,
-                startLine: nc.startPage,
-                endLine: nc.endPage
-            }));
 
-            const chunks = generateChunksFromText(text, chaptersForChunker, textbookId);
-            await db.chunks.bulkAdd(chunks);
-        });
-        
-        logActivity('VIEW_TEXTBOOK', { action: 'upload' });
-        setProgress(100);
-        setStatus("Course Initialized Successfully");
-        toast.success("Course material loaded successfully!");
-        
-    } catch (err) {
-        console.error(err);
-        setStatus("Error: " + err);
-        toast.error("Failed to load course material");
-    } finally {
-        setIsProcessing(false);
+            setSectionChunks(chunks);
+            logActivity('READ_CHAPTER', { sectionId: section.id, sectionTitle: section.title });
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to load section content");
+            setReadingSection(null);
+            setReadingChapter(null);
+        } finally {
+            setLoadingContent(false);
+        }
+    };
+
+    // Navigate to previous/next section
+    const navigateSection = (direction: 'prev' | 'next') => {
+        if (!readingSection || !readingChapter) return;
+
+        const currentIndex = allSections.findIndex(s => s.id === readingSection.id);
+        const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+
+        if (newIndex >= 0 && newIndex < allSections.length) {
+            loadSectionContent(allSections[newIndex], readingChapter);
+        }
+    };
+
+    // Get content markers for a chapter
+    const getChapterMarkers = (chapterId: string) => {
+        return contentMarkers.filter(m => m.chapterId === chapterId);
+    };
+
+    // Get section definitions from structure for display
+    const getChapterSections = (chapterNum: number): SectionDef[] => {
+        const chapter = getAllChapters().find(c => c.number === chapterNum);
+        return chapter?.sections || [];
+    };
+
+    // Loading state
+    if (!masterBook && !isProcessing) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-md mx-auto text-center space-y-6">
+                <BookOpen className="h-16 w-16 text-primary animate-pulse" />
+                <h2 className="text-2xl font-bold">Loading Course Material...</h2>
+                <p className="text-muted-foreground">Initializing Fundamentals of Corporate Tax</p>
+            </div>
+        );
     }
-  };
 
-  const handleChapterUpdate = async (chapter: IChapter, field: keyof IChapter, value: any) => {
-    const updated = { ...chapter, [field]: value };
-    const newChapters = chapters.map(c => c.id === chapter.id ? updated : c);
-    setChapters(newChapters);
-  };
+    if (isProcessing) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-md mx-auto text-center space-y-6">
+                <h2 className="text-2xl font-bold">Initializing Course...</h2>
+                <Progress value={progress} className="w-full h-3" />
+                <p className="text-muted-foreground animate-pulse">{status}</p>
+            </div>
+        );
+    }
 
-  const saveChapters = async () => {
-    await db.chapters.bulkPut(chapters);
-    setIsEditing(false);
-    toast.success("Structure updated");
-  };
+    // If reading a section, show the EnhancedReader
+    if (readingSection && readingChapter) {
+        const currentSectionIndex = allSections.findIndex(s => s.id === readingSection.id);
 
-  if (!masterBook && !isProcessing) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-3xl mx-auto text-center space-y-8">
-            <div className="space-y-2">
-                <h1 className="text-4xl font-bold tracking-tight">Initialize Course Material</h1>
-                <p className="text-xl text-muted-foreground">
-                    Upload the <span className="font-semibold text-primary">"Fundamentals of Corporate Tax"</span> text file to begin.
-                </p>
+        return (
+            <div className="max-w-7xl mx-auto py-4 px-4">
+                {loadingContent ? (
+                    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+                        <BookOpen className="h-12 w-12 text-primary animate-pulse" />
+                        <p className="text-muted-foreground">Loading section content...</p>
+                    </div>
+                ) : (
+                    <>
+                        <Button
+                            variant="ghost"
+                            className="mb-4"
+                            onClick={() => {
+                                setReadingSection(null);
+                                setReadingChapter(null);
+                                setSectionChunks([]);
+                            }}
+                        >
+                            ← Back to Course
+                        </Button>
+                        <EnhancedReader
+                            chunks={sectionChunks.map((c, i) => ({
+                                id: `chunk-${i}`,
+                                textbookId: masterBook?.id || '',
+                                partId: '',
+                                chapterId: readingChapter.id,
+                                sectionId: readingSection.id,
+                                content: c.content,
+                                pageNumbers: c.pageNumbers,
+                                tokenCount: 0,
+                                statutoryRefs: [],
+                                caseRefs: [],
+                                contentTypes: [],
+                                sequenceOrder: i
+                            }))}
+                            section={readingSection}
+                            chapterNumber={readingChapter.number}
+                            sectionLetter={readingSection.letter}
+                            userId={userId}
+                            onPrevious={() => navigateSection('prev')}
+                            onNext={() => navigateSection('next')}
+                            hasPrevious={currentSectionIndex > 0}
+                            hasNext={currentSectionIndex < allSections.length - 1}
+                        />
+                    </>
+                )}
+            </div>
+        );
+    }
+
+    // Main course view
+    return (
+        <div className="space-y-6 max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="flex justify-between items-start">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Course Material</h1>
+                    <p className="text-muted-foreground">Fundamentals of Corporate Taxation</p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={resetCourseData}
+                >
+                    <Trash2 size={14} className="mr-2" /> Reset Course Data
+                </Button>
             </div>
 
-            <Card className="w-full border-dashed border-2">
-                <CardContent className="pt-10 pb-10 space-y-6">
-                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                        <FileText className="h-10 w-10 text-primary" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                        <Label htmlFor="upload-master" className="cursor-pointer">
-                            <div className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-md font-medium transition-colors inline-flex items-center gap-2">
-                                <Upload size={18} />
-                                Select Master Text File
+            {/* Stats Cards */}
+            <div className="grid grid-cols-4 gap-4">
+                <Card className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/50 dark:to-neutral-900">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <BookOpen className="h-8 w-8 text-blue-600" />
+                            <div>
+                                <p className="text-2xl font-bold">{chapters.length}</p>
+                                <p className="text-xs text-muted-foreground">Chapters</p>
                             </div>
-                            <Input 
-                                id="upload-master" 
-                                type="file" 
-                                accept=".txt" 
-                                className="hidden" 
-                                onChange={handleInitializeCourse} 
-                            />
-                        </Label>
-                        <p className="text-xs text-muted-foreground mt-4">
-                            Accepts .txt format only. This will overwrite any existing course data.
-                        </p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/50 dark:to-neutral-900">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <AlertCircle className="h-8 w-8 text-amber-600" />
+                            <div>
+                                <p className="text-2xl font-bold">{stats.problems}</p>
+                                <p className="text-xs text-muted-foreground">Problems</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/50 dark:to-neutral-900">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <Gavel className="h-8 w-8 text-purple-600" />
+                            <div>
+                                <p className="text-2xl font-bold">{stats.cases}</p>
+                                <p className="text-xs text-muted-foreground">Cases</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-green-50 to-white dark:from-green-950/50 dark:to-neutral-900">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <ScrollText className="h-8 w-8 text-green-600" />
+                            <div>
+                                <p className="text-2xl font-bold">{stats.rulings}</p>
+                                <p className="text-xs text-muted-foreground">Rev. Rulings</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Parts and Chapters */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Course Structure
+                    </CardTitle>
+                    <CardDescription>
+                        3 Parts • {chapters.length} Chapters • Pages 3-735
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {TEXTBOOK_STRUCTURE.map((part) => (
+                            <Collapsible
+                                key={part.number}
+                                open={expandedPart === `part-${part.number}`}
+                                onOpenChange={(open) => setExpandedPart(open ? `part-${part.number}` : null)}
+                            >
+                                <CollapsibleTrigger className="w-full">
+                                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-900 rounded-lg hover:from-slate-200 hover:to-slate-100 dark:hover:from-slate-700 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <Badge variant="outline" className="font-mono">
+                                                PART {part.number}
+                                            </Badge>
+                                            <span className="font-semibold">{part.title}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                            <span>{part.chapters.length} Chapter{part.chapters.length > 1 ? 's' : ''}</span>
+                                            <span className="font-mono">pp. {part.startPage}-{part.endPage}</span>
+                                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedPart === `part-${part.number}` ? 'rotate-180' : ''}`} />
+                                        </div>
+                                    </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="pt-2 pl-4 space-y-2">
+                                    {part.chapters.map((chapterDef) => {
+                                        const chapter = chapters.find(c => c.number === chapterDef.number);
+                                        if (!chapter) return null;
+
+                                        const markers = getChapterMarkers(chapter.id);
+                                        const problemCount = markers.filter(m => m.type === 'problem').length;
+                                        const caseCount = markers.filter(m => m.type === 'case').length;
+                                        const sections = getChapterSections(chapter.number);
+
+                                        return (
+                                            <Collapsible
+                                                key={chapter.id}
+                                                open={expandedChapter === chapter.id}
+                                                onOpenChange={(open) => {
+                                                    setExpandedChapter(open ? chapter.id : null);
+                                                    if (open) logActivity('READ_CHAPTER', { chapterId: chapter.id });
+                                                }}
+                                            >
+                                                <CollapsibleTrigger className="w-full">
+                                                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                                                        <div className="flex items-center gap-3">
+                                                            <Badge className="bg-blue-600 text-white font-mono">
+                                                                Ch. {chapter.number}
+                                                            </Badge>
+                                                            <span className="font-medium text-left">{chapter.title}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex gap-1">
+                                                                {problemCount > 0 && (
+                                                                    <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-xs">
+                                                                        {problemCount} Problems
+                                                                    </Badge>
+                                                                )}
+                                                                {caseCount > 0 && (
+                                                                    <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50 text-xs">
+                                                                        {caseCount} Cases
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-xs text-muted-foreground font-mono">
+                                                                pp. {chapter.startPage}-{chapter.endPage}
+                                                            </span>
+                                                            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expandedChapter === chapter.id ? 'rotate-180' : ''}`} />
+                                                        </div>
+                                                    </div>
+                                                </CollapsibleTrigger>
+                                                <CollapsibleContent className="border-l-2 border-blue-200 ml-4 mt-2 pl-4 space-y-4">
+                                                    {/* Sections */}
+                                                    <div>
+                                                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                                                            Sections ({sections.length}) - Click to read
+                                                        </h4>
+                                                        <div className="space-y-1">
+                                                            {sections.map((sectionDef) => {
+                                                                // Get the actual section from database
+                                                                const sectionId = `${chapter.id}-${sectionDef.letter}`;
+                                                                const dbSection: ISection = {
+                                                                    id: sectionId,
+                                                                    textbookId: masterBook?.id || '',
+                                                                    chapterId: chapter.id,
+                                                                    letter: sectionDef.letter,
+                                                                    title: sectionDef.title,
+                                                                    startPage: sectionDef.startPage,
+                                                                    endPage: sectionDef.startPage + 10 // Approximate
+                                                                };
+
+                                                                return (
+                                                                    <div
+                                                                        key={sectionDef.letter}
+                                                                        className="flex items-center gap-2 p-2 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer transition-colors group"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            loadSectionContent(dbSection, chapter);
+                                                                        }}
+                                                                    >
+                                                                        <Badge variant="outline" className="font-mono text-xs bg-blue-50 group-hover:bg-blue-100">
+                                                                            {sectionDef.letter}.
+                                                                        </Badge>
+                                                                        <span className="text-sm group-hover:text-blue-700 dark:group-hover:text-blue-300">{sectionDef.title}</span>
+                                                                        <span className="text-xs text-muted-foreground ml-auto font-mono">
+                                                                            p. {sectionDef.startPage}
+                                                                        </span>
+                                                                        <BookOpenCheck size={14} className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Content Markers */}
+                                                    {markers.length > 0 && (
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            {/* Problems */}
+                                                            {markers.filter(m => m.type === 'problem').length > 0 && (
+                                                                <div>
+                                                                    <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-600 mb-2 flex items-center gap-1">
+                                                                        <AlertCircle size={12} /> Problems
+                                                                    </h4>
+                                                                    <div className="space-y-1">
+                                                                        {markers.filter(m => m.type === 'problem').map((m, i) => (
+                                                                            <div key={i} className="text-xs p-1 bg-amber-50 rounded">
+                                                                                Page {m.startPage}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {/* Cases */}
+                                                            {markers.filter(m => m.type === 'case').length > 0 && (
+                                                                <div>
+                                                                    <h4 className="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2 flex items-center gap-1">
+                                                                        <Gavel size={12} /> Cases
+                                                                    </h4>
+                                                                    <div className="space-y-1">
+                                                                        {markers.filter(m => m.type === 'case').map((m, i) => (
+                                                                            <div key={i} className="text-xs p-1 bg-purple-50 rounded">
+                                                                                {m.title} <span className="text-muted-foreground">(p. {m.startPage})</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        );
+                                    })}
+                                </CollapsibleContent>
+                            </Collapsible>
+                        ))}
                     </div>
                 </CardContent>
             </Card>
         </div>
-      );
-  }
-
-  if (isProcessing) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-md mx-auto text-center space-y-6">
-            <h2 className="text-2xl font-bold">Initializing Course...</h2>
-            <Progress value={progress} className="w-full h-3" />
-            <p className="text-muted-foreground animate-pulse">{status}</p>
-        </div>
-      );
-  }
-
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex justify-between items-start">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Course Material</h1>
-            <p className="text-muted-foreground">Fundamentals of Corporate Taxation</p>
-        </div>
-        <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
-                if(confirm("Are you sure? This will delete all course data and progress.")) {
-                    logActivity('COURSE_RESET');
-                    db.textbooks.where('userId').equals(userId).delete();
-                    db.chapters.clear(); 
-                    window.location.reload();
-                }
-            }}>
-                Reset Course Data
-            </Button>
-        </div>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-            <CardContent className="pt-6 flex items-center gap-4">
-                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
-                    <BookOpen size={24} />
-                </div>
-                <div>
-                    <p className="text-sm font-medium text-muted-foreground">Chapters</p>
-                    <h3 className="text-2xl font-bold">{chapters.length}</h3>
-                </div>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardContent className="pt-6 flex items-center gap-4">
-                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
-                    <Scale size={24} />
-                </div>
-                <div>
-                    <p className="text-sm font-medium text-muted-foreground">Case Law Citations</p>
-                    <h3 className="text-2xl font-bold">{stats.cases}</h3>
-                </div>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardContent className="pt-6 flex items-center gap-4">
-                <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
-                    <ScrollText size={24} />
-                </div>
-                <div>
-                    <p className="text-sm font-medium text-muted-foreground">Statutory Refs</p>
-                    <h3 className="text-2xl font-bold">{stats.statutes}</h3>
-                </div>
-            </CardContent>
-        </Card>
-      </div>
-
-      {/* Structure Table */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-                <CardTitle>Course Structure</CardTitle>
-                <CardDescription>Click a row to verify extracted content</CardDescription>
-            </div>
-            <div className="flex gap-2">
-                {isEditing ? (
-                    <Button onClick={saveChapters} size="sm" className="gap-2">
-                        <Save size={16} /> Save Structure
-                    </Button>
-                ) : (
-                    <Button onClick={() => setIsEditing(true)} variant="outline" size="sm" className="gap-2">
-                        <Edit2 size={16} /> Edit Structure
-                    </Button>
-                )}
-            </div>
-        </CardHeader>
-        <CardContent>
-            <div className="border rounded-md divide-y">
-                <div className="grid grid-cols-12 bg-muted/50 p-3 text-sm font-medium">
-                    <div className="col-span-1">Ch #</div>
-                    <div className="col-span-8">Title</div>
-                    <div className="col-span-2">Lines</div>
-                    <div className="col-span-1">Status</div>
-                </div>
-                
-                {chapters.map((chapter) => (
-                    <Collapsible 
-                        key={chapter.id} 
-                        open={expandedChapter === chapter.id}
-                        onOpenChange={(open) => setExpandedChapter(open ? chapter.id : null)}
-                    >
-                        <CollapsibleTrigger asChild>
-                            <div className="grid grid-cols-12 p-3 text-sm items-center hover:bg-muted/30 cursor-pointer transition-colors group">
-                                <div className="col-span-1">
-                                    {isEditing ? (
-                                        <Input 
-                                            type="number" 
-                                            value={chapter.number} 
-                                            onChange={(e) => handleChapterUpdate(chapter, 'number', parseInt(e.target.value))}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="h-8 w-12" 
-                                        />
-                                    ) : (
-                                        <span className="font-bold text-muted-foreground">{chapter.number}</span>
-                                    )}
-                                </div>
-                                <div className="col-span-8 font-medium flex items-center gap-2">
-                                    {isEditing ? (
-                                        <Input 
-                                            value={chapter.title} 
-                                            onChange={(e) => handleChapterUpdate(chapter, 'title', e.target.value)}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="h-8 w-full" 
-                                        />
-                                    ) : (
-                                        <>
-                                            {chapter.title}
-                                            <ChevronDown size={14} className={`text-muted-foreground transition-transform ${expandedChapter === chapter.id ? 'rotate-180' : ''}`} />
-                                        </>
-                                    )}
-                                </div>
-                                <div className="col-span-2 text-xs text-muted-foreground font-mono">
-                                    {chapter.startPage} - {chapter.endPage}
-                                </div>
-                                <div className="col-span-1">
-                                    <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">
-                                        <Check size={10} className="mr-1" /> Ready
-                                    </Badge>
-                                </div>
-                            </div>
-                        </CollapsibleTrigger>
-                        
-                        <CollapsibleContent className="bg-muted/10 border-t p-4">
-                            {chapterDetails && expandedChapter === chapter.id ? (
-                                <div className="grid grid-cols-2 gap-8">
-                                    <div className="space-y-4">
-                                        <div>
-                                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
-                                                <Scale size={14} /> Case Law Found
-                                            </h4>
-                                            {chapterDetails.cases.length > 0 ? (
-                                                <ScrollArea className="h-[200px] border rounded-md p-2 bg-white dark:bg-neutral-900">
-                                                    <ul className="space-y-1">
-                                                        {chapterDetails.cases.map((c, i) => (
-                                                            <li key={i} className="text-xs py-1 border-b border-dashed last:border-0">{c}</li>
-                                                        ))}
-                                                    </ul>
-                                                </ScrollArea>
-                                            ) : (
-                                                <p className="text-xs text-muted-foreground italic">No cases cited in this chapter</p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
-                                                <ScrollText size={14} /> Statutory References
-                                            </h4>
-                                             {chapterDetails.statutes.length > 0 ? (
-                                                <div className="flex flex-wrap gap-1 max-h-[100px] overflow-y-auto">
-                                                    {chapterDetails.statutes.map((s, i) => (
-                                                        <Badge key={i} variant="secondary" className="text-[10px] h-5">{s}</Badge>
-                                                    ))}
-                                                </div>
-                                             ) : (
-                                                <p className="text-xs text-muted-foreground italic">No statutory references found</p>
-                                             )}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
-                                            <Eye size={14} /> Content Preview
-                                        </h4>
-                                        <div className="text-xs text-muted-foreground font-mono bg-muted/30 p-3 rounded-md border h-[300px] overflow-y-auto whitespace-pre-wrap">
-                                            {chapterDetails.textPreview}
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-center justify-center py-8">
-                                    <span className="loading loading-spinner loading-sm"></span> Loading details...
-                                </div>
-                            )}
-                        </CollapsibleContent>
-                    </Collapsible>
-                ))}
-            </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+    );
 };
 
 export default TextbookPage;

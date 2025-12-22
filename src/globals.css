@@ -99,3 +99,66 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============================================================================
+   ENHANCED READER STYLES
+   ============================================================================ */
+
+@layer components {
+
+  /* Reference Styling */
+  .statute-ref {
+    @apply text-blue-600 dark:text-blue-400 font-medium cursor-pointer hover:underline;
+  }
+
+  .case-ref {
+    @apply text-purple-600 dark:text-purple-400 font-medium cursor-pointer hover:underline;
+    font-variant: small-caps;
+  }
+
+  .reg-ref {
+    @apply text-emerald-600 dark:text-emerald-400 font-medium cursor-pointer hover:underline;
+  }
+
+  .term {
+    @apply text-amber-700 dark:text-amber-400;
+  }
+
+  /* Reader Content Typography */
+  .reader-content {
+    @apply text-base leading-relaxed;
+  }
+
+  .reader-content h2 {
+    @apply text-2xl font-bold mt-8 mb-4 pb-2 border-b-2 border-gray-200 dark:border-gray-700;
+  }
+
+  .reader-content h3 {
+    @apply text-xl font-semibold mt-6 mb-3 text-gray-800 dark:text-gray-200;
+  }
+
+  .reader-content h4 {
+    @apply text-lg font-semibold mt-5 mb-2 text-gray-700 dark:text-gray-300;
+  }
+
+  .reader-content p {
+    @apply leading-relaxed mb-4 text-gray-700 dark:text-gray-300;
+    text-align: justify;
+    hyphens: auto;
+  }
+
+  /* Section Outline */
+  .section-outline ul {
+    @apply border-l-2 border-gray-200 dark:border-gray-700;
+  }
+
+  .section-outline li {
+    @apply relative;
+  }
+
+  .section-outline li::before {
+    content: '';
+    @apply absolute left-0 top-1/2 w-2 h-px bg-gray-200 dark:bg-gray-700 -translate-y-1/2;
+    margin-left: -2px;
+  }
+}
