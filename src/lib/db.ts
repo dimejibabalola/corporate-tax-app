@@ -8,7 +8,7 @@ export interface Textbook {
   totalPages: number;
   uploadDate: Date;
   processed: boolean;
-  fileData?: Blob; 
+  fileData?: Blob;
 }
 
 export interface Chapter {
@@ -20,10 +20,22 @@ export interface Chapter {
   endPage: number;
 }
 
+export interface Section {
+  id: string;
+  textbookId: string;
+  chapterId: string;
+  type: 'section' | 'subsection' | 'subsubsection';
+  label: string;      // "A", "1", "a"
+  title: string;
+  sequenceOrder: number;
+}
+
 export interface Chunk {
   id: string;
   textbookId: string;
   chapterId: string;
+  sectionId?: string;
+  sectionContext?: string;
   content: string;
   pageNumbers: number[];
   tokenCount: number;
@@ -35,6 +47,7 @@ export interface Chunk {
 export class TaxPrepDB extends Dexie {
   textbooks!: Table<Textbook>;
   chapters!: Table<Chapter>;
+  sections!: Table<Section>;
   chunks!: Table<Chunk>;
 
   constructor() {
@@ -45,13 +58,20 @@ export class TaxPrepDB extends Dexie {
       chapters: 'id, textbookId, number',
       chunks: 'id, textbookId, chapterId, sequenceOrder'
     });
-    
-    // Version 2 (New - adds userId index)
-    // We upgrade the schema to index userId for fast filtering
+
+    // Version 2 (adds userId index)
     this.version(2).stores({
       textbooks: 'id, userId, title',
       chapters: 'id, textbookId, number',
       chunks: 'id, textbookId, chapterId, sequenceOrder'
+    });
+
+    // Version 3 (adds sections table)
+    this.version(3).stores({
+      textbooks: 'id, userId, title',
+      chapters: 'id, textbookId, number',
+      sections: 'id, textbookId, chapterId, sequenceOrder',
+      chunks: 'id, textbookId, chapterId, sectionId, sequenceOrder'
     });
   }
 }

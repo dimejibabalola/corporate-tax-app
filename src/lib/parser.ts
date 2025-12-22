@@ -31,13 +31,9 @@ export function detectStructureFromText(text: string): { chapters: ParsedChapter
       const match = cleanLine.match(pattern);
       if (match) {
         // Avoid duplicate/noisy headers (e.g. table of contents)
-        // Simple heuristic: Chapter headers usually have some spacing or are distinct
-        // For now, we accept them if they increment the chapter count
-        
         const lastChapter = chapters[chapters.length - 1];
         const newNumber = chapters.length + 1;
         
-        // If we found a chapter match
         chapters.push({
           number: newNumber,
           title: match[2].trim(),
@@ -49,7 +45,6 @@ export function detectStructureFromText(text: string): { chapters: ParsedChapter
     }
   });
 
-  // Fallback: One big chapter if none found
   if (chapters.length === 0) {
     chapters.push({
       number: 1,
@@ -58,7 +53,6 @@ export function detectStructureFromText(text: string): { chapters: ParsedChapter
       endLine: lines.length
     });
   } else {
-    // Fix end lines
     for (let i = 0; i < chapters.length; i++) {
       chapters[i].endLine = chapters[i + 1] ? chapters[i + 1].startLine - 1 : lines.length;
     }
@@ -72,16 +66,12 @@ export function detectStructureFromText(text: string): { chapters: ParsedChapter
 // ------------------------------------------------------------------
 
 function extractCaseRefs(text: string): string[] {
-    // Matches: "Name v. Name"
-    // Handles: "Commissioner v. Tufts", "In re Estate of Smith"
-    // Heuristic: Capitalized words surrounding " v. "
     const caseRegex = /([A-Z][\w\.,]+(?:\s+[A-Z][\w\.,]+)*\s+v\.\s+[A-Z][\w\.,]+(?:\s+[A-Z][\w\.,]+)*)/g;
     const refs = text.match(caseRegex);
     return refs ? Array.from(new Set(refs)) : [];
 }
 
 function extractStatutoryRefs(text: string): string[] {
-    // Matches: "§ 351", "IRC § 368(a)(1)(A)", "Section 1001"
     const statuteRegex = /((?:IRC\s+|Section\s+|Sec\.\s+)?§\s*\d+[A-Za-z0-9\(\)]*)/g;
     const refs = text.match(statuteRegex);
     return refs ? Array.from(new Set(refs)) : [];
@@ -92,7 +82,7 @@ function estimateTokens(text: string) {
 }
 
 // ------------------------------------------------------------------
-// Stage 3: Chunking
+// Stage 3: Granular Chunking
 // ------------------------------------------------------------------
 
 export function generateChunksFromText(text: string, chapters: ParsedChapter[], textbookId: string) {
@@ -101,34 +91,38 @@ export function generateChunksFromText(text: string, chapters: ParsedChapter[], 
   let sequence = 0;
 
   chapters.forEach(chapter => {
-    // Extract lines for this chapter
     const chapterLines = lines.slice(chapter.startLine, chapter.endLine);
-    const chapterText = chapterLines.join('\n');
     
-    // Split by double newline (paragraphs)
+    // Improved Logic:
+    // 1. Join lines into a single text block
+    // 2. Split strictly by double newlines to isolate paragraphs
+    // 3. Keep chunks small (don't merge unless tiny)
+    
+    const chapterText = chapterLines.join('\n');
     const paragraphs = chapterText.split(/\n\s*\n/);
     
-    let currentChunkText = [];
-    let currentTokens = 0;
-    const TARGET_TOKENS = 600;
+    let buffer: string[] = [];
+    let bufferTokens = 0;
+    const MIN_TOKENS = 50; // Don't make chunks smaller than this if possible
+    const MAX_TOKENS = 400; // Force split if larger than this
     
-    const commitChunk = () => {
-         if (currentChunkText.length === 0) return;
+    const commitBuffer = () => {
+         if (buffer.length === 0) return;
          
-         const content = currentChunkText.join('\n\n');
+         const content = buffer.join('\n\n');
          chunks.push({
             id: uuidv4(),
             textbookId,
-            chapterId: chapter.id, // ID must be injected by caller before passing here, or we use index map
+            chapterId: chapter.id,
             content,
-            pageNumbers: [], // Text files don't have pages usually, could approximate
-            tokenCount: currentTokens,
+            pageNumbers: [], 
+            tokenCount: bufferTokens,
             statutoryRefs: extractStatutoryRefs(content),
             caseRefs: extractCaseRefs(content),
             sequenceOrder: sequence++
         });
-        currentChunkText = [];
-        currentTokens = 0;
+        buffer = [];
+        bufferTokens = 0;
     };
 
     for (const para of paragraphs) {
@@ -136,16 +130,23 @@ export function generateChunksFromText(text: string, chapters: ParsedChapter[], 
         
         const paraTokens = estimateTokens(para);
         
-        if (currentTokens + paraTokens > TARGET_TOKENS) {
-            commitChunk();
+        // If adding this paragraph exceeds max, commit current buffer first
+        if (bufferTokens + paraTokens > MAX_TOKENS) {
+            commitBuffer();
         }
         
-        currentChunkText.push(para);
-        currentTokens += paraTokens;
+        buffer.push(para);
+        bufferTokens += paraTokens;
+        
+        // If we have enough context (>= MIN_TOKENS), commit immediately
+        // This ensures distinct concepts stay distinct
+        if (bufferTokens >= MIN_TOKENS) {
+            commitBuffer();
+        }
     }
     
     // Final commit
-    commitChunk();
+    commitBuffer();
   });
 
   return chunks;
