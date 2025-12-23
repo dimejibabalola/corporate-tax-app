@@ -161,4 +161,167 @@
     @apply absolute left-0 top-1/2 w-2 h-px bg-gray-200 dark:bg-gray-700 -translate-y-1/2;
     margin-left: -2px;
   }
+
+  /* Page Dividers */
+  .page-divider {
+    @apply flex justify-between items-center px-4 py-2 my-6;
+    @apply bg-slate-50 dark:bg-slate-900;
+    @apply border-l-4 border-blue-500;
+    @apply text-sm text-slate-600 dark:text-slate-400;
+  }
+
+  .page-divider .page-number {
+    @apply font-semibold;
+  }
+
+  .page-divider .page-context {
+    @apply italic;
+  }
+
+  /* Footnotes */
+  .page-footnotes {
+    @apply mt-6 pt-4;
+    @apply border-t border-gray-200 dark:border-gray-700;
+  }
+
+  .footnote {
+    @apply text-sm text-gray-600 dark:text-gray-400 mb-2;
+  }
+
+  .footnote sup {
+    @apply font-semibold text-blue-600 dark:text-blue-400 mr-1;
+  }
+
+  .ruling-ref {
+    @apply text-amber-600 dark:text-amber-400 font-medium;
+  }
+
+  /* MinerU HTML Table Styling */
+  .mineru-table table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  .mineru-table th,
+  .mineru-table td {
+    @apply border border-slate-200 dark:border-slate-700 px-3 py-2 text-left;
+  }
+
+  .mineru-table th {
+    @apply bg-slate-50 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-200;
+  }
+
+  .mineru-table tr:nth-child(even) {
+    @apply bg-slate-50/50 dark:bg-slate-800/30;
+  }
+
+  .mineru-table tr:hover {
+    @apply bg-slate-50 dark:bg-slate-800/50;
+  }
+
+  /* MinerU Image Styling */
+  .mineru-image {
+    @apply max-w-full h-auto rounded-lg shadow-sm;
+  }
+
+  .mineru-caption {
+    @apply text-sm text-center text-muted-foreground italic mt-2;
+  }
+
+  /* ============================================================================
+     COURSE READER PROSE ENHANCEMENTS
+     ============================================================================ */
+
+  /* Custom highlight marks for prose */
+  .prose mark {
+    background-color: rgb(254 249 195);
+    /* yellow-100 */
+    padding: 0.1em 0.2em;
+    border-radius: 0.125rem;
+  }
+
+  .dark .prose mark {
+    background-color: rgb(161 98 7 / 0.3);
+    /* yellow-700/30 */
+    color: rgb(254 240 138);
+    /* yellow-200 */
+  }
+
+  /* Custom underline support for prose */
+  .prose u {
+    text-decoration-color: rgb(59 130 246);
+    /* blue-500 */
+    text-underline-offset: 3px;
+  }
+
+  /* Prose table improvements */
+  .prose table {
+    font-size: 0.875rem;
+  }
+
+  .prose th {
+    background-color: rgb(248 250 252);
+    /* slate-50 */
+  }
+
+  .dark .prose th {
+    background-color: rgb(30 41 59);
+    /* slate-800 */
+  }
+
+  /* Prose blockquote styling */
+  .prose blockquote {
+    @apply border-l-4 border-blue-500 bg-slate-50 dark:bg-slate-900 py-2 not-italic;
+  }
+
+  /* Prose code inline styling */
+  .prose :where(code):not(:where([class~="not-prose"] *)) {
+    @apply bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-sm font-normal;
+  }
+
+  .prose :where(code):not(:where([class~="not-prose"] *))::before,
+  .prose :where(code):not(:where([class~="not-prose"] *))::after {
+    content: none;
+  }
+
+  /* IRC Section References in prose */
+  .prose .statute-ref {
+    @apply text-blue-600 dark:text-blue-400 font-medium cursor-pointer hover:underline;
+  }
+
+  /* Case references in prose */
+  .prose .case-ref {
+    @apply text-purple-600 dark:text-purple-400 font-medium cursor-pointer hover:underline;
+    font-variant: small-caps;
+  }
+
+  /* Regulation references in prose */
+  .prose .reg-ref {
+    @apply text-emerald-600 dark:text-emerald-400 font-medium cursor-pointer hover:underline;
+  }
+
+  /* =========================================================================
+   * CHAPTER EYEBROW LABEL
+   * Small uppercase label that appears above the real title
+   * e.g., "CHAPTER 1" above "AN OVERVIEW OF..."
+   * ========================================================================= */
+  .chapter-eyebrow {
+    @apply text-sm font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest mb-2 mt-10;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* =========================================================================
+   * PAGE FOOTNOTES
+   * Recovered from MinerU discarded_blocks
+   * ========================================================================= */
+  .page-footnotes {
+    @apply mt-8 pt-4 border-t border-stone-200 dark:border-stone-700;
+  }
+
+  .footnotes-header {
+    @apply text-xs font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-3;
+  }
+
+  .footnote-item {
+    @apply text-sm text-stone-600 dark:text-stone-400 mb-2 pl-4 border-l-2 border-stone-200 dark:border-stone-700;
+  }
 }

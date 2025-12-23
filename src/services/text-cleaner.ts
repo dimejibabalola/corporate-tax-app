@@ -209,3 +209,134 @@ export function restoreParagraphBreaks(text: string): string {
 
     return result;
 }
+
+// ============================================================================
+// PAGE BOUNDARY DETECTION
+// ============================================================================
+
+/**
+ * Detect page boundaries from raw text
+ */
+export function detectPageBoundaries(rawText: string): PageBoundary[] {
+    const boundaries: PageBoundary[] = [];
+
+    // Pattern 1: Odd pages - "TITLE CHAPTER X SUBTITLE PAGE#"
+    const oddPagePattern = /AN OVERVIEW OF THE TAXATION OF CORPORATIONS\s+CHAPTER (\d+)\s+AND SHAREHOLDERS\s+(\d+)/g;
+
+    // Pattern 2: Even pages - "PAGE# TITLE PART X"
+    const evenPagePattern = /(\d+)\s+(INTRODUCTION|TAXATION OF C CORPORATIONS|TAXATION OF S CORPORATIONS)\s+PART (ONE|TWO|THREE)/g;
+
+    // Pattern 3: Simple page markers - "— Page X —"
+    const simplePagePattern = /—\s*Page\s+(\d+)\s*—/g;
+
+    let match;
+
+    // Find odd page markers
+    while ((match = oddPagePattern.exec(rawText)) !== null) {
+        boundaries.push({
+            pageNumber: parseInt(match[2]),
+            chapterRef: `CHAPTER ${match[1]}`,
+            sectionContext: 'AN OVERVIEW OF THE TAXATION OF CORPORATIONS AND SHAREHOLDERS',
+            startIndex: match.index,
+            endIndex: match.index + match[0].length
+        });
+    }
+
+    // Find even page markers
+    while ((match = evenPagePattern.exec(rawText)) !== null) {
+        boundaries.push({
+            pageNumber: parseInt(match[1]),
+            sectionContext: match[2],
+            startIndex: match.index,
+            endIndex: match.index + match[0].length
+        });
+    }
+
+    // Find simple page markers
+    while ((match = simplePagePattern.exec(rawText)) !== null) {
+        boundaries.push({
+            pageNumber: parseInt(match[1]),
+            startIndex: match.index,
+            endIndex: match.index + match[0].length
+        });
+    }
+
+    // Sort by position in text
+    boundaries.sort((a, b) => a.startIndex - b.startIndex);
+
+    return boundaries;
+}
+
+// ============================================================================
+// PAGE SPLITTING
+// ============================================================================
+
+/**
+ * Split cleaned content into discrete pages with context
+ */
+export function splitIntoPages(
+    rawText: string,
+    chapterId: string,
+    sectionId: string,
+    sectionTitle: string
+): ReaderPage[] {
+    const boundaries = detectPageBoundaries(rawText);
+    const pages: ReaderPage[] = [];
+
+    if (boundaries.length === 0) {
+        // No boundaries detected - treat as single page
+        const cleaned = cleanExtractedText(rawText, 0);
+        pages.push({
+            pageNumber: 0,
+            chapterId,
+            sectionId,
+            sectionTitle,
+            content: cleaned.mainText,
+            footnotes: cleaned.footnotes,
+            isPageStart: true
+        });
+        return pages;
+    }
+
+    // Process each page segment
+    for (let i = 0; i < boundaries.length; i++) {
+        const boundary = boundaries[i];
+        const start = boundary.endIndex;
+        const end = i + 1 < boundaries.length
+            ? boundaries[i + 1].startIndex
+            : rawText.length;
+
+        const pageText = rawText.slice(start, end);
+        const cleaned = cleanExtractedText(pageText, boundary.pageNumber);
+
+        if (cleaned.mainText.length > 10) { // Skip nearly empty pages
+            pages.push({
+                pageNumber: boundary.pageNumber,
+                chapterId,
+                sectionId,
+                sectionTitle: boundary.sectionContext || sectionTitle,
+                content: cleaned.mainText,
+                footnotes: cleaned.footnotes,
+                isPageStart: true
+            });
+        }
+    }
+
+    return pages;
+}
+
+// ============================================================================
+// BATCH CLEANING
+// ============================================================================
+
+/**
+ * Clean multiple chunks of text, preserving page numbers
+ */
+export function cleanChunks(
+    chunks: { content: string; pageNumbers: number[] }[]
+): CleanedPage[] {
+    return chunks.map(chunk => {
+        const pageNum = chunk.pageNumbers[0] || 0;
+        return cleanExtractedText(chunk.content, pageNum);
+    });
+}

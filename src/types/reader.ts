@@ -10,6 +10,7 @@
 
 export type ContentBlock =
     | HeadingBlock
+    | EyebrowBlock
     | ParagraphBlock
     | CaseHeaderBlock
     | RulingHeaderBlock
@@ -18,13 +19,23 @@ export type ContentBlock =
     | StatuteBlock
     | BlockquoteBlock
     | ListBlock
+    | TableBlock
+    | HtmlTableBlock
+    | ImageBlock
+    | EquationBlock
     | CheckPromptBlock;
 
 export interface HeadingBlock {
     type: 'heading';
-    level: 2 | 3 | 4;
+    level: 1 | 2 | 3 | 4;
     text: string;
     anchor: string;
+}
+
+// Eyebrow: Small uppercase label like "CHAPTER 1" that appears above the real title
+export interface EyebrowBlock {
+    type: 'eyebrow';
+    text: string;
 }
 
 export interface ParagraphBlock {
@@ -74,12 +85,49 @@ export interface ListBlock {
     items: string[];
 }
 
+export interface TableBlock {
+    type: 'table';
+    headers: string[];
+    rows: string[][];
+    caption?: string;
+}
+
 export interface CheckPromptBlock {
     type: 'check_prompt';
     id: string;
     prompt: string;
     hint?: string;
     answer: string;
+}
+
+/**
+ * HTML Table Block - for tables rendered as HTML (from MinerU)
+ */
+export interface HtmlTableBlock {
+    type: 'htmlTable';
+    html: string;
+    caption?: string;
+    footnotes?: string[];
+}
+
+/**
+ * Image Block - for extracted images (from MinerU)
+ */
+export interface ImageBlock {
+    type: 'image';
+    src: string;
+    alt?: string;
+    caption?: string;
+    footnotes?: string[];
+}
+
+/**
+ * Equation Block - for mathematical equations (from MinerU)
+ */
+export interface EquationBlock {
+    type: 'equation';
+    latex?: string;
+    imageSrc?: string;
 }
 
 // ============================================================================

@@ -6,3 +6,7 @@ export { ReaderBlock } from './ReaderBlock';
 export { CheckPromptCard } from './CheckPromptCard';
 export { SectionOutline } from './SectionOutline';
 export { EnhancedReader } from './EnhancedReader';
+export { PageDivider } from './PageDivider';
+export { FootnoteSection } from './FootnoteSection';
+export { CourseReader } from './CourseReader';
+export { MinerUBlockRenderer, MinerUPageRenderer } from './MinerUBlockRenderer';

@@ -23,6 +23,10 @@ export interface Chapter {
   endPage: number;
 }
 
+// Alias for compatibility
+export type IChapter = Chapter;
+export type IPart = Part;
+
 export interface Section {
   id: string;
   textbookId: string;
@@ -32,6 +36,8 @@ export interface Section {
   startPage: number;
   endPage: number;
 }
+
+export type ISection = Section;
 
 export interface Subsection {
   id: string;
@@ -107,9 +113,176 @@ export interface Chunk {
 export interface ActivityLog {
   id?: number;
   userId: string;
-  type: 'LOGIN' | 'VIEW_TEXTBOOK' | 'START_QUIZ' | 'GENERATE_QUIZ' | 'COMPLETE_QUIZ' | 'READ_CHAPTER' | 'COURSE_RESET';
+  type: 'LOGIN' | 'VIEW_TEXTBOOK' | 'START_QUIZ' | 'GENERATE_QUIZ' | 'COMPLETE_QUIZ' | 'READ_CHAPTER' | 'COURSE_RESET' | 'STUDY_SESSION';
   details?: string;
   timestamp: Date;
+}
+
+// ============================================================================
+// QUIZ ENGINE - Question Types
+// ============================================================================
+
+export type QuestionType = 'MC' | 'SHORT_ANSWER' | 'FILL_BLANK' | 'ISSUE_SPOTTER' | 'TRUE_FALSE';
+export type Difficulty = 'basic' | 'intermediate' | 'exam';
+
+export interface Question {
+  id: string;
+  textbookId: string;
+  chapterId: string;
+  sectionId?: string;
+  type: QuestionType;
+  difficulty: Difficulty;
+  question: string;
+  // For MC
+  options?: { A: string; B: string; C: string; D: string };
+  correctAnswer?: string;     // 'A'|'B'|'C'|'D' for MC, 'true'|'false' for T/F, or text
+  // For Fill-in-blank
+  acceptableAnswers?: string[];
+  // For Short Answer / Issue Spotter
+  modelAnswer?: string;
+  keyPoints?: string[];
+  // For Issue Spotter
+  factPattern?: string;
+  issues?: { issue: string; analysis: string; conclusion: string }[];
+  // Common
+  explanation: string;
+  sourcePages: number[];
+  createdAt: Date;
+}
+
+export interface QuizAttempt {
+  id: string;
+  userId: string;
+  textbookId: string;
+  chapterId?: string;
+  sectionId?: string;
+  questionIds: string[];
+  score?: number;
+  totalQuestions: number;
+  correctCount?: number;
+  startedAt: Date;
+  completedAt?: Date;
+}
+
+export interface Answer {
+  id: string;
+  quizAttemptId: string;
+  questionId: string;
+  userAnswer: string;
+  isCorrect?: boolean;
+  score?: 'full' | 'partial' | 'minimal' | 'miss';  // For subjective
+  feedback?: string;
+  answeredAt: Date;
+}
+
+// ============================================================================
+// E&E GENERATOR
+// ============================================================================
+
+export interface EEExample {
+  number: number;
+  title: string;
+  difficulty: Difficulty;
+  facts: string;
+  question: string;
+  analysis: { step: number; issue: string; analysis: string; conclusion: string }[];
+  result: string;
+  keyTakeaway: string;
+}
+
+export interface EEContent {
+  id: string;
+  textbookId: string;
+  sectionId: string;
+  topic: string;
+  rule: {
+    statement: string;
+    statutoryBasis: string;
+    keyRequirements: string[];
+  };
+  examples: EEExample[];
+  commonMistakes: string[];
+  examTips: string[];
+  relatedTopics: { sectionId: string; title: string; relationship: string }[];
+  sourcePages: number[];
+  generatedAt: Date;
+  expiresAt: Date;
+}
+
+// ============================================================================
+// PROGRESS TRACKER
+// ============================================================================
+
+export type MasteryLevel = 'NOT_STARTED' | 'NEEDS_WORK' | 'DEVELOPING' | 'PROFICIENT' | 'MASTERED';
+
+export interface ChapterProgress {
+  id: string;
+  userId: string;
+  textbookId: string;
+  chapterId: string;
+  coverageScore: number;      // 0-1: How much content has been quizzed
+  accuracyScore: number;      // 0-1: Weighted recent performance
+  retentionScore: number;     // 0-1: SRS performance
+  masteryScore: number;       // 0-1: Combined score
+  masteryLevel: MasteryLevel;
+  questionsAttempted: number;
+  questionsCorrect: number;
+  lastActivityAt: Date;
+}
+
+export interface SectionProgress {
+  id: string;
+  userId: string;
+  chapterId: string;
+  sectionId: string;
+  questionsAttempted: number;
+  questionsCorrect: number;
+  masteryScore: number;
+  lastActivityAt: Date;
+}
+
+// ============================================================================
+// SPACED REPETITION (SRS)
+// ============================================================================
+
+export interface SRSCard {
+  id: string;
+  userId: string;
+  questionId: string;
+  nextReviewAt: Date;
+  intervalDays: number;
+  easeFactor: number;
+  consecutiveCorrect: number;
+  lastReviewedAt?: Date;
+}
+
+// ============================================================================
+// GAMIFICATION
+// ============================================================================
+
+export interface Streak {
+  id: string;
+  userId: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string;   // YYYY-MM-DD format
+}
+
+export interface Milestone {
+  id: string;
+  milestoneId: string;        // 'first_quiz', 'first_chapter', etc.
+  userId: string;
+  earnedAt: Date;
+}
+
+export interface StudySession {
+  id: string;
+  userId: string;
+  startedAt: Date;
+  endedAt?: Date;
+  durationMinutes?: number;
+  questionsAnswered: number;
+  chaptersStudied: string[];
 }
 
 // ============================================================================
@@ -143,6 +316,30 @@ export interface Bookmark {
   createdAt: Date;
 }
 
+export interface StatuteReference {
+  section: string;           // "351", "368(c)"
+  fullText: string;          // Actual IRC language
+  summary: string;           // Plain English
+  coveredInSections: string[]; // Section IDs where discussed
+}
+
+export interface CaseReference {
+  name: string;              // "Peracchi v. Commissioner"
+  citation?: string;         // "143 F.3d 487 (9th Cir. 1998)"
+  holding: string;
+  factsSummary: string;
+  textbookPage: number;
+  sectionId: string;
+}
+
+export interface RulingReference {
+  number: string;            // "68-55"
+  summary: string;
+  keyTakeaway: string;
+  textbookPage: number;
+  sectionId: string;
+}
+
 export interface ReadingProgress {
   id: string;
   userId: string;
@@ -173,8 +370,30 @@ export interface SearchHistory {
 }
 
 // ============================================================================
+// TEXTBOOK PAGES (Imported from JSON)
+// ============================================================================
+
+export interface TextbookPage {
+  id: string;
+  pageNumber: number;
+  chapterId: string;
+  sectionId: string;
+  sectionTitle: string;
+  content: string;
+  startsNewSection: boolean;
+}
+
+export interface PageFootnote {
+  id: string;
+  pageId: string;
+  footnoteNumber: number;
+  text: string;
+}
+
+// ============================================================================
 // Database Class
 // ============================================================================
+
 
 export class TaxPrepDB extends Dexie {
   // Structure
@@ -187,6 +406,26 @@ export class TaxPrepDB extends Dexie {
   contentMarkers!: Table<ContentMarker>;
   chunks!: Table<Chunk>;
 
+  // Quiz Engine
+  questions!: Table<Question>;
+  quizAttempts!: Table<QuizAttempt>;
+  answers!: Table<Answer>;
+
+  // E&E
+  eeContent!: Table<EEContent>;
+
+  // Progress
+  chapterProgress!: Table<ChapterProgress>;
+  sectionProgress!: Table<SectionProgress>;
+
+  // SRS
+  srsCards!: Table<SRSCard>;
+
+  // Gamification
+  streaks!: Table<Streak>;
+  milestones!: Table<Milestone>;
+  studySessions!: Table<StudySession>;
+
   // Activity
   activityLogs!: Table<ActivityLog>;
 
@@ -197,12 +436,15 @@ export class TaxPrepDB extends Dexie {
   checkPromptResponses!: Table<CheckPromptResponse>;
   searchHistory!: Table<SearchHistory>;
 
+  // Textbook Pages (from JSON import)
+  textbookPages!: Table<TextbookPage>;
+  pageFootnotes!: Table<PageFootnote>;
+
   constructor() {
     super('TaxPrepDB');
 
-    // Version 1-3 were previous iterations
-    // Version 4: Complete schema overhaul for structured reader
-    this.version(4).stores({
+    // Version 8: Added textbook pages from JSON import
+    this.version(8).stores({
       // Structure
       textbooks: 'id, userId, title',
       parts: 'id, textbookId, number',
@@ -213,6 +455,26 @@ export class TaxPrepDB extends Dexie {
       contentMarkers: 'id, textbookId, chapterId, type, startPage',
       chunks: 'id, textbookId, partId, chapterId, sectionId, sequenceOrder',
 
+      // Quiz Engine
+      questions: 'id, textbookId, chapterId, sectionId, type, difficulty, createdAt',
+      quizAttempts: 'id, userId, textbookId, chapterId, startedAt, completedAt',
+      answers: 'id, quizAttemptId, questionId, answeredAt',
+
+      // E&E
+      eeContent: 'id, textbookId, sectionId, generatedAt, expiresAt',
+
+      // Progress
+      chapterProgress: 'id, userId, textbookId, chapterId, masteryLevel, lastActivityAt',
+      sectionProgress: 'id, userId, chapterId, sectionId, lastActivityAt',
+
+      // SRS
+      srsCards: 'id, userId, questionId, nextReviewAt',
+
+      // Gamification
+      streaks: 'id, userId',
+      milestones: 'id, milestoneId, userId, earnedAt',
+      studySessions: 'id, userId, startedAt',
+
       // Activity
       activityLogs: '++id, userId, type, timestamp',
 
@@ -221,9 +483,35 @@ export class TaxPrepDB extends Dexie {
       bookmarks: 'id, userId, sectionId, chapterId, createdAt',
       readingProgress: 'id, userId, sectionId, chapterId, completed, lastReadAt',
       checkPromptResponses: 'id, userId, promptId, sectionId, respondedAt',
-      searchHistory: 'id, userId, searchedAt'
+      searchHistory: 'id, userId, searchedAt',
+
+      // Textbook Pages (from JSON import)
+      textbookPages: 'id, pageNumber, chapterId, sectionId',
+      pageFootnotes: 'id, pageId, footnoteNumber'
     });
   }
 }
 
 export const db = new TaxPrepDB();
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+export function getMasteryLevel(score: number): MasteryLevel {
+  if (score === 0) return 'NOT_STARTED';
+  if (score < 0.60) return 'NEEDS_WORK';
+  if (score < 0.80) return 'DEVELOPING';
+  if (score < 0.90) return 'PROFICIENT';
+  return 'MASTERED';
+}
+
+export function getMasteryColor(level: MasteryLevel): string {
+  switch (level) {
+    case 'NOT_STARTED': return 'gray';
+    case 'NEEDS_WORK': return 'red';
+    case 'DEVELOPING': return 'yellow';
+    case 'PROFICIENT': return 'green';
+    case 'MASTERED': return 'blue';
+  }
+}

@@ -6,7 +6,8 @@ import path from "path";
 export default defineConfig(() => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 5180, // Dedicated port for Corporate Tax I
+    strictPort: true, // Fail if port is in use instead of incrementing
   },
   plugins: [dyadComponentTagger(), react()],
   resolve: {

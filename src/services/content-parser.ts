@@ -8,7 +8,8 @@ import {
     ContentBlock,
     FormattedContent,
     Reference,
-    CheckPrompt
+    CheckPrompt,
+    TableBlock
 } from '@/types/reader';
 import { Chunk, Section } from '@/lib/db';
 import { cleanExtractedText, CleanedPage, Footnote } from './text-cleaner';
@@ -34,6 +35,12 @@ function slugify(text: string): string {
  */
 function formatParagraph(text: string): string {
     let html = text.trim();
+
+    // Markdown Bold: **text**
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // Markdown Italic: *text* (simple check, avoid conflicting with lists)
+    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
 
     // Markup statutory references: § 351 → <span class="statute-ref">§ 351</span>
     html = html.replace(
@@ -67,6 +74,43 @@ function formatParagraph(text: string): string {
 // ============================================================================
 
 /**
+ * Parse Markdown Table
+ */
+function parseMarkdownTable(text: string): TableBlock | null {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return null;
+
+    // Check separator line (allow basic markdown table structure)
+    // Row 1 should contain - and |
+    if (!lines[1].includes('-') || !lines[1].includes('|')) return null;
+
+    // Helper to split row by pipe, handling escaped pipes if necessary (simple version)
+    const splitRow = (line: string) =>
+        line.split('|').map(c => c.trim()).filter((c, i, arr) => {
+            // Filter out empty first/last if they are empty (result of leading/trailing pipe)
+            if ((i === 0 || i === arr.length - 1) && c === '') return false;
+            return true;
+        });
+
+    const headers = splitRow(lines[0]);
+    const rows: string[][] = [];
+
+    for (let i = 2; i < lines.length; i++) {
+        const row = splitRow(lines[i]);
+        if (row.length > 0) rows.push(row);
+    }
+
+    // Ensure we have headers and rows
+    if (headers.length === 0) return null;
+
+    return {
+        type: 'table',
+        headers,
+        rows
+    };
+}
+
+/**
  * Parse structural elements from text
  */
 export function parseStructuralElements(text: string, sectionLetter?: string): ContentBlock[] {
@@ -78,8 +122,52 @@ export function parseStructuralElements(text: string, sectionLetter?: string): C
     for (const para of paragraphs) {
         const trimmed = para.trim();
 
+        // --------------------------------------------------------
+        // MARKDOWN & STRUCTURE DETECTION
+        // --------------------------------------------------------
+
+        // Markdown Header 1: "# Title"
+        if (/^#\s+(.+)/.test(trimmed)) {
+            const content = trimmed.replace(/^#\s+/, '').trim();
+            blocks.push({
+                type: 'heading',
+                level: 1,
+                text: content,
+                anchor: slugify(content)
+            });
+        }
+        // Markdown Header 2: "## Title"
+        else if (/^##\s+(.+)/.test(trimmed)) {
+            const content = trimmed.replace(/^##\s+/, '').trim();
+            blocks.push({
+                type: 'heading',
+                level: 2,
+                text: content,
+                anchor: slugify(content)
+            });
+        }
+        // Markdown Header 3: "### Title"
+        else if (/^###\s+(.+)/.test(trimmed)) {
+            const content = trimmed.replace(/^###\s+/, '').trim();
+            blocks.push({
+                type: 'heading',
+                level: 3,
+                text: content,
+                anchor: slugify(content)
+            });
+        }
+        // Markdown Header 4: "#### Title"
+        else if (/^####\s+(.+)/.test(trimmed)) {
+            const content = trimmed.replace(/^####\s+/, '').trim();
+            blocks.push({
+                type: 'heading',
+                level: 4,
+                text: content,
+                anchor: slugify(content)
+            });
+        }
         // Detect subsection headers: "1. Control Immediately After"
-        if (/^\d+\.\s+[A-Z]/.test(trimmed) && trimmed.length < 100) {
+        else if (/^\d+\.\s+[A-Z]/.test(trimmed) && trimmed.length < 100) {
             blocks.push({
                 type: 'heading',
                 level: 3,
@@ -145,6 +233,28 @@ export function parseStructuralElements(text: string, sectionLetter?: string): C
                 type: 'blockquote',
                 content
             });
+        }
+        // Detect All CAPS header (e.g. "INTRODUCTION")
+        else if (/^[A-Z][A-Z\d\s\.\-,:&]+$/.test(trimmed) && trimmed.length < 100 && trimmed.length > 3) {
+            blocks.push({
+                type: 'heading',
+                level: 3,
+                text: trimmed,
+                anchor: slugify(trimmed)
+            });
+        }
+        // Detect Markdown Table
+        else if (/^\|/.test(trimmed) || (trimmed.split('\n')[1] || '').trim().startsWith('|')) {
+            const table = parseMarkdownTable(trimmed);
+            if (table) {
+                blocks.push(table);
+            } else {
+                // Fallback to text if table parse fails
+                blocks.push({
+                    type: 'paragraph',
+                    html: formatParagraph(trimmed)
+                });
+            }
         }
         // Regular paragraph
         else if (trimmed.length > 0) {
@@ -218,6 +328,7 @@ export function extractReferences(text: string): Reference[] {
 
 /**
  * Format section content from chunks into structured FormattedContent
+ * Now handles JSON blocks directly from MinerU import
  */
 export function formatSectionContent(
     chunks: Chunk[],
@@ -227,6 +338,8 @@ export function formatSectionContent(
     sectionLetter?: string
 ): FormattedContent & { footnotes: Footnote[] } {
     let blocks: ContentBlock[] = [];
+    const allFootnotes: Footnote[] = [];
+    const pageNumbers: number[] = [];
 
     // 1. Add section heading
     blocks.push({
@@ -236,32 +349,45 @@ export function formatSectionContent(
         anchor: slugify(sectionTitle)
     });
 
-    // 2. Clean and combine chunk content
-    const cleanedPages = chunks.map((c, i) =>
-        cleanExtractedText(c.content, c.pageNumbers[0] || i)
-    );
+    // 2. Process each chunk - check if it's JSON blocks or text
+    for (const chunk of chunks) {
+        // Collect page numbers
+        pageNumbers.push(...chunk.pageNumbers);
 
-    // Combine cleaned text
-    const raw = cleanedPages.map(p => p.mainText).join('\n\n');
+        // Try to parse content as JSON blocks
+        try {
+            const parsed = JSON.parse(chunk.content);
+            if (Array.isArray(parsed)) {
+                // It's JSON blocks from MinerU - add directly
+                blocks = blocks.concat(parsed);
+                continue;
+            }
+        } catch {
+            // Not JSON - fall through to text parsing
+        }
 
-    // Collect all footnotes
-    const allFootnotes = cleanedPages.flatMap(p => p.footnotes);
+        // Legacy: Parse as text
+        const cleaned = cleanExtractedText(chunk.content, chunk.pageNumbers[0] || 0);
+        blocks = blocks.concat(parseStructuralElements(cleaned.mainText, sectionLetter));
+        allFootnotes.push(...cleaned.footnotes);
+    }
 
-    // 3. Parse structural elements
-    blocks = blocks.concat(parseStructuralElements(raw, sectionLetter));
+    // 3. Extract references from all text blocks
+    const textContent = blocks
+        .filter(b => b.type === 'paragraph')
+        .map(b => (b as { html: string }).html || '')
+        .join(' ');
+    const references = extractReferences(textContent);
 
-    // 4. Extract references
-    const references = extractReferences(raw);
-
-    // 5. Get page numbers
-    const pageNumbers = [...new Set(chunks.flatMap(c => c.pageNumbers))].sort((a, b) => a - b);
+    // 4. Dedupe page numbers
+    const uniquePages = [...new Set(pageNumbers)].sort((a, b) => a - b);
 
     return {
         sectionId,
         chapterId,
         title: sectionTitle,
         blocks,
-        pageNumbers,
+        pageNumbers: uniquePages,
         references,
         footnotes: allFootnotes
     };

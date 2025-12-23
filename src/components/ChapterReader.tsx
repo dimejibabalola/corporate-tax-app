@@ -1,158 +1,112 @@
 import React, { useState } from 'react';
+import { CourseReader } from './reader/CourseReader';
 
 export interface ChapterPageData {
-    pageNumber: number;
-    content: string;
+  pageNumber: number;
+  content: string;
 }
 
 interface ChapterReaderProps {
-    pages: ChapterPageData[];
-    chapterTitle: string;
-    onClose: () => void;
-}
-
-// Format footnote references (superscript numbers)
-function formatFootnotes(text: string): React.ReactNode[] {
-    const parts: React.ReactNode[] = [];
-    const lines = text.split('\n');
-
-    lines.forEach((line, lineIdx) => {
-        // Check if this is a footnote line (starts with a number followed by space)
-        const footnoteMatch = line.match(/^(\d+)\s+(.+)/);
-        const isSectionHeader = /^[A-H]\.\s+[A-Z]/.test(line.trim()) ||
-            /^\d+\.\s+[A-Z]/.test(line.trim());
-
-        if (footnoteMatch && parseInt(footnoteMatch[1]) <= 50) {
-            // This is a footnote at the bottom of the page
-            parts.push(
-                <div key={lineIdx} className="footnote-text">
-                    <sup>{footnoteMatch[1]}</sup> {footnoteMatch[2]}
-                </div>
-            );
-        } else if (isSectionHeader) {
-            // Section header - make it bold
-            parts.push(
-                <div key={lineIdx} className="section-header">
-                    {line}
-                </div>
-            );
-        } else {
-            // Regular content - format inline footnote references
-            const formattedLine = line.replace(
-                /(\d+)(?=\s|$|,|\.|\))/g,
-                (match, num) => {
-                    const n = parseInt(num);
-                    // Only treat as footnote if it's a small number at end of sentence
-                    if (n <= 99 && line.indexOf(num) > line.length - 10) {
-                        return `⟨${num}⟩`; // Mark for styling
-                    }
-                    return match;
-                }
-            );
-            parts.push(
-                <div key={lineIdx} className="content-line">
-                    {formattedLine}
-                </div>
-            );
-        }
-    });
-
-    return parts;
+  pages: ChapterPageData[];
+  chapterTitle: string;
+  onClose: () => void;
 }
 
 export const ChapterReader: React.FC<ChapterReaderProps> = ({ pages, chapterTitle, onClose }) => {
-    const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
-    if (pages.length === 0) {
-        return (
-            <div className="chapter-reader-empty">
-                No content available for this chapter.
-            </div>
-        );
-    }
-
-    const currentPage = pages[currentPageIndex];
-    const totalPages = pages.length;
-
-    const goToPrevPage = () => {
-        if (currentPageIndex > 0) {
-            setCurrentPageIndex(currentPageIndex - 1);
-        }
-    };
-
-    const goToNextPage = () => {
-        if (currentPageIndex < totalPages - 1) {
-            setCurrentPageIndex(currentPageIndex + 1);
-        }
-    };
-
-    const goToPage = (pageNum: number) => {
-        const idx = pages.findIndex(p => p.pageNumber === pageNum);
-        if (idx !== -1) {
-            setCurrentPageIndex(idx);
-        }
-    };
-
+  if (pages.length === 0) {
     return (
-        <div className="chapter-reader">
-            {/* Header */}
-            <div className="chapter-reader-header">
-                <button className="close-btn" onClick={onClose}>← Back to Chapters</button>
-                <h2>{chapterTitle}</h2>
-            </div>
+      <div className="chapter-reader-empty">
+        No content available for this chapter.
+      </div>
+    );
+  }
 
-            {/* Navigation Bar */}
-            <div className="chapter-reader-nav">
-                <button
-                    onClick={goToPrevPage}
-                    disabled={currentPageIndex === 0}
-                    className="nav-btn"
-                >
-                    ← Previous
-                </button>
+  const currentPage = pages[currentPageIndex];
+  const totalPages = pages.length;
 
-                <div className="page-selector">
-                    <span>Page </span>
-                    <select
-                        value={currentPage.pageNumber}
-                        onChange={(e) => goToPage(parseInt(e.target.value))}
-                    >
-                        {pages.map(p => (
-                            <option key={p.pageNumber} value={p.pageNumber}>
-                                {p.pageNumber}
-                            </option>
-                        ))}
-                    </select>
-                    <span> of {pages[pages.length - 1].pageNumber}</span>
-                </div>
+  const goToPrevPage = () => {
+    if (currentPageIndex > 0) {
+      setCurrentPageIndex(currentPageIndex - 1);
+    }
+  };
 
-                <button
-                    onClick={goToNextPage}
-                    disabled={currentPageIndex === totalPages - 1}
-                    className="nav-btn"
-                >
-                    Next →
-                </button>
-            </div>
+  const goToNextPage = () => {
+    if (currentPageIndex < totalPages - 1) {
+      setCurrentPageIndex(currentPageIndex + 1);
+    }
+  };
 
-            {/* Page Content */}
-            <div className="chapter-reader-content">
-                <div className="page-number-header">
-                    — Page {currentPage.pageNumber} —
-                </div>
-                <div className="page-text">
-                    {formatFootnotes(currentPage.content)}
-                </div>
-            </div>
+  const goToPage = (pageNum: number) => {
+    const idx = pages.findIndex(p => p.pageNumber === pageNum);
+    if (idx !== -1) {
+      setCurrentPageIndex(idx);
+    }
+  };
 
-            {/* Bottom Navigation */}
-            <div className="chapter-reader-footer">
-                <span>
-                    Page {currentPageIndex + 1} of {totalPages} pages in this chapter
-                </span>
-            </div>
+  return (
+    <div className="chapter-reader">
+      {/* Header */}
+      <div className="chapter-reader-header">
+        <button className="close-btn" onClick={onClose}>← Back to Chapters</button>
+        <h2>{chapterTitle}</h2>
+      </div>
 
-            <style>{`
+      {/* Navigation Bar */}
+      <div className="chapter-reader-nav">
+        <button
+          onClick={goToPrevPage}
+          disabled={currentPageIndex === 0}
+          className="nav-btn"
+        >
+          ← Previous
+        </button>
+
+        <div className="page-selector">
+          <span>Page </span>
+          <select
+            value={currentPage.pageNumber}
+            onChange={(e) => goToPage(parseInt(e.target.value))}
+          >
+            {pages.map(p => (
+              <option key={p.pageNumber} value={p.pageNumber}>
+                {p.pageNumber}
+              </option>
+            ))}
+          </select>
+          <span> of {pages[pages.length - 1].pageNumber}</span>
+        </div>
+
+        <button
+          onClick={goToNextPage}
+          disabled={currentPageIndex === totalPages - 1}
+          className="nav-btn"
+        >
+          Next →
+        </button>
+      </div>
+
+      {/* Page Content - Using CourseReader for Markdown */}
+      <div className="chapter-reader-content">
+        <div className="page-number-header">
+          — Page {currentPage.pageNumber} —
+        </div>
+        <CourseReader
+          markdownContent={currentPage.content}
+          size="base"
+          className="px-2"
+        />
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="chapter-reader-footer">
+        <span>
+          Page {currentPageIndex + 1} of {totalPages} pages in this chapter
+        </span>
+      </div>
+
+      <style>{`
         .chapter-reader {
           background: #faf9f7;
           border-radius: 12px;
@@ -311,8 +265,8 @@ export const ChapterReader: React.FC<ChapterReaderProps> = ({ pages, chapterTitl
           font-style: italic;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 };
 
 export default ChapterReader;

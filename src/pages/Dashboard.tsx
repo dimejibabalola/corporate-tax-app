@@ -4,12 +4,12 @@ import { ArrowRight, TrendingUp, AlertCircle, Clock, CheckCircle2, BookOpen, Fla
 import { Link, useOutletContext } from "react-router-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { useTracker } from "@/hooks/use-tracker";
-import { useEffect, useState, useMemo } from "react";
-import { db, Chapter, ChapterProgress, getMasteryLevel, getMasteryColor, MasteryLevel, Streak } from "@/lib/db";
+import { useMemo } from "react";
+import { db, ChapterProgress, getMasteryLevel, MasteryLevel, Streak, Answer } from "@/lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { TEXTBOOK_STRUCTURE, countContentTypes } from "@/lib/textbook/structure";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Mastery level styling
 const MASTERY_STYLES: Record<MasteryLevel, { bg: string; text: string; label: string }> = {
@@ -20,59 +20,84 @@ const MASTERY_STYLES: Record<MasteryLevel, { bg: string; text: string; label: st
   'MASTERED': { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', label: 'Mastered' },
 };
 
+// Get chapters from hardcoded structure - ALWAYS available
+const ALL_CHAPTERS = TEXTBOOK_STRUCTURE.flatMap(part =>
+  part.chapters.map(ch => ({
+    ...ch,
+    id: `ch-${ch.number}`,  // Generate ID from chapter number
+    partNumber: part.number,
+    partTitle: part.title,
+  }))
+);
+
 const Dashboard = () => {
   const { userId } = useOutletContext<{ userId: string }>();
   const { logActivity } = useTracker(userId);
 
-  // Get textbook and chapters from database
-  const textbook = useLiveQuery(() =>
-    db.textbooks.where('userId').equals(userId).first()
-    , [userId]);
+  // ============================================================================
+  // INDEPENDENT DATA LOADING - Each loads separately, dashboard renders immediately
+  // ============================================================================
 
-  const chapters = useLiveQuery(() =>
-    textbook ? db.chapters.where('textbookId').equals(textbook.id).sortBy('number') : []
-    , [textbook]);
-
+  // Progress data - can be loading, will show defaults
   const chapterProgress = useLiveQuery(() =>
-    textbook ? db.chapterProgress.where('textbookId').equals(textbook.id).toArray() : []
-    , [textbook]);
+    db.chapterProgress.where('userId').equals(userId).toArray()
+    , [userId]);
+  const progressLoading = chapterProgress === undefined;
 
+  // Streak data - can be loading
   const streak = useLiveQuery(() =>
     db.streaks.where('userId').equals(userId).first()
     , [userId]);
+  const streakLoading = streak === undefined;
 
-  const quizAttempts = useLiveQuery(() =>
-    db.quizAttempts.where('userId').equals(userId).toArray()
-    , [userId]);
-
+  // Answers for total count
   const answers = useLiveQuery(() =>
     db.answers.toArray()
     , []);
+  const answersLoading = answers === undefined;
 
-  // Calculate stats from hardcoded structure
+  // ============================================================================
+  // DERIVED VALUES - Use defaults when loading
+  // ============================================================================
+
   const stats = countContentTypes();
+  const totalQuestions = answers?.length || 0;
+  const currentStreak = streak?.currentStreak || 0;
+  const chaptersStarted = progressLoading ? 0 : chapterProgress?.filter(p => p.masteryScore > 0).length || 0;
 
-  // Calculate exam readiness
+  // Create progress map for quick lookup
+  const progressMap = useMemo(() =>
+    new Map((chapterProgress || []).map(p => [p.chapterId, p]))
+    , [chapterProgress]);
+
+  // Get mastery for a chapter
+  const getChapterMastery = (chapterId: string) => {
+    const progress = progressMap.get(chapterId);
+    return {
+      score: progress?.masteryScore || 0,
+      level: progress?.masteryLevel || 'NOT_STARTED' as MasteryLevel,
+      questions: progress?.questionsAttempted || 0,
+      accuracy: progress?.questionsAttempted ? Math.round((progress.questionsCorrect / progress.questionsAttempted) * 100) : 0
+    };
+  };
+
+  // Exam readiness calculation
   const examReadiness = useMemo(() => {
-    if (!chapters || chapters.length === 0) return { score: 0, label: 'Not Started' };
-
-    const progressMap = new Map((chapterProgress || []).map(p => [p.chapterId, p]));
+    if (progressLoading) return { score: 0, label: 'Calculating...' };
+    if (!chapterProgress || chapterProgress.length === 0) return { score: 0, label: 'Not Started' };
 
     let totalMastery = 0;
     let chaptersWithProgress = 0;
 
-    chapters.forEach(chapter => {
-      const progress = progressMap.get(chapter.id);
-      if (progress && progress.masteryScore > 0) {
+    chapterProgress.forEach(progress => {
+      if (progress.masteryScore > 0) {
         totalMastery += progress.masteryScore;
         chaptersWithProgress++;
       }
     });
 
-    const coverage = chaptersWithProgress / chapters.length;
+    const coverage = chaptersWithProgress / ALL_CHAPTERS.length;
     const avgMastery = chaptersWithProgress > 0 ? totalMastery / chaptersWithProgress : 0;
-
-    // Exam readiness formula: 25% coverage + 50% mastery + 25% recency (simplified)
     const score = (coverage * 0.25) + (avgMastery * 0.50) + (coverage * 0.25);
     const percentage = Math.round(score * 100);
 
@@ -83,51 +108,29 @@ const Dashboard = () => {
     else if (percentage > 0) label = 'Just Starting';
 
     return { score: percentage, label };
-  }, [chapters, chapterProgress]);
+  }, [chapterProgress, progressLoading]);
 
-  // Get chapter progress
-  const getChapterMastery = (chapterId: string) => {
-    const progress = chapterProgress?.find(p => p.chapterId === chapterId);
-    return {
-      score: progress?.masteryScore || 0,
-      level: progress?.masteryLevel || 'NOT_STARTED' as MasteryLevel,
-      questions: progress?.questionsAttempted || 0,
-      accuracy: progress?.questionsAttempted ? Math.round((progress.questionsCorrect / progress.questionsAttempted) * 100) : 0
-    };
-  };
-
-  // Find weak chapters
+  // Weak chapters
   const weakChapters = useMemo(() => {
-    if (!chapters || !chapterProgress) return [];
+    if (progressLoading || !chapterProgress) return [];
     return chapterProgress
       .filter(p => p.masteryLevel === 'NEEDS_WORK' || (p.masteryScore > 0 && p.masteryScore < 0.6))
       .map(p => {
-        const chapter = chapters.find(c => c.id === p.chapterId);
+        const chapter = ALL_CHAPTERS.find(c => c.id === p.chapterId);
         return chapter ? { ...chapter, mastery: p } : null;
       })
       .filter(Boolean)
       .slice(0, 3);
-  }, [chapters, chapterProgress]);
+  }, [chapterProgress, progressLoading]);
 
-  // Calculate total questions answered
-  const totalQuestions = answers?.length || 0;
-  const currentStreak = streak?.currentStreak || 0;
-
-  // Readiness chart data
   const readinessData = [
     { name: 'Ready', value: examReadiness.score },
     { name: 'Remaining', value: 100 - examReadiness.score },
   ];
 
-  if (!textbook) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <BookOpen className="h-16 w-16 text-muted-foreground animate-pulse" />
-        <h2 className="text-xl font-semibold">Loading Dashboard...</h2>
-        <p className="text-muted-foreground">Please wait or visit the <Link to="/textbook" className="text-primary underline">Textbook</Link> page first.</p>
-      </div>
-    );
-  }
+  // ============================================================================
+  // RENDER - Never blocked, always shows structure immediately
+  // ============================================================================
 
   return (
     <div className="space-y-6">
@@ -136,9 +139,8 @@ const Dashboard = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Corporate Tax Dashboard</h1>
           <p className="text-muted-foreground">
-            {examReadiness.score > 0
-              ? `${examReadiness.label} - Keep up the great work!`
-              : 'Start studying to track your progress'}
+            {progressLoading ? 'Loading your progress...' :
+              examReadiness.score > 0 ? `${examReadiness.label} - Keep up the great work!` : 'Start studying to track your progress'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -154,7 +156,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Top Stats Row */}
+      {/* Top Stats Row - Show skeletons or values */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/30 dark:to-neutral-900 border-orange-100 dark:border-orange-900/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -162,7 +164,11 @@ const Dashboard = () => {
             <Flame className="h-5 w-5 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">{currentStreak} Days</div>
+            {streakLoading ? (
+              <Skeleton className="h-9 w-24" />
+            ) : (
+              <div className="text-3xl font-bold text-orange-600">{currentStreak} Days</div>
+            )}
             <p className="text-xs text-muted-foreground">
               {currentStreak > 0 ? 'Keep it going! 🔥' : 'Start studying today!'}
             </p>
@@ -175,7 +181,11 @@ const Dashboard = () => {
             <CheckCircle2 className="h-5 w-5 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-purple-600">{totalQuestions}</div>
+            {answersLoading ? (
+              <Skeleton className="h-9 w-16" />
+            ) : (
+              <div className="text-3xl font-bold text-purple-600">{totalQuestions}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               of {stats.problems}+ practice problems
             </p>
@@ -188,9 +198,13 @@ const Dashboard = () => {
             <BookOpen className="h-5 w-5 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">
-              {chapterProgress?.filter(p => p.masteryScore > 0).length || 0} / {chapters?.length || 15}
-            </div>
+            {progressLoading ? (
+              <Skeleton className="h-9 w-20" />
+            ) : (
+              <div className="text-3xl font-bold text-green-600">
+                {chaptersStarted} / {ALL_CHAPTERS.length}
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
               chapters with activity
             </p>
@@ -203,7 +217,11 @@ const Dashboard = () => {
             <AlertCircle className="h-5 w-5 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-600">{weakChapters.length}</div>
+            {progressLoading ? (
+              <Skeleton className="h-9 w-8" />
+            ) : (
+              <div className="text-3xl font-bold text-red-600">{weakChapters.length}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               {weakChapters.length > 0 ? 'Focus on these next' : 'No weak spots yet!'}
             </p>
@@ -212,7 +230,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-7">
-        {/* Main Progress Area */}
+        {/* Main Progress Area - ALWAYS renders all chapters from hardcoded TOC */}
         <Card className="lg:col-span-5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -220,7 +238,7 @@ const Dashboard = () => {
               Chapter Progress
             </CardTitle>
             <CardDescription>
-              Your mastery across all {chapters?.length || 15} chapters
+              Your mastery across all {ALL_CHAPTERS.length} chapters
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -230,10 +248,7 @@ const Dashboard = () => {
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                     Part {part.number}: {part.title}
                   </h3>
-                  {part.chapters.map((chapterDef) => {
-                    const chapter = chapters?.find(c => c.number === chapterDef.number);
-                    if (!chapter) return null;
-
+                  {part.chapters.map((chapter) => {
                     const mastery = getChapterMastery(chapter.id);
                     const style = MASTERY_STYLES[mastery.level];
 
@@ -243,20 +258,28 @@ const Dashboard = () => {
                           <span className="font-medium truncate max-w-[200px] md:max-w-md">
                             Ch {chapter.number}. {chapter.title}
                           </span>
-                          <Badge className={`${style.bg} ${style.text} border-0`}>
-                            {style.label}
-                          </Badge>
+                          {progressLoading ? (
+                            <Skeleton className="h-5 w-20" />
+                          ) : (
+                            <Badge className={`${style.bg} ${style.text} border-0`}>
+                              {style.label}
+                            </Badge>
+                          )}
                         </div>
                         <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-500 ${mastery.level === 'NOT_STARTED' ? 'bg-gray-300' :
+                          {progressLoading ? (
+                            <Skeleton className="h-full w-full" />
+                          ) : (
+                            <div
+                              className={`h-full transition-all duration-500 ${mastery.level === 'NOT_STARTED' ? 'bg-gray-300' :
                                 mastery.level === 'NEEDS_WORK' ? 'bg-red-500' :
                                   mastery.level === 'DEVELOPING' ? 'bg-yellow-500' :
                                     mastery.level === 'PROFICIENT' ? 'bg-green-500' :
                                       'bg-blue-500'
-                              }`}
-                            style={{ width: `${Math.max(mastery.score * 100, 3)}%` }}
-                          />
+                                }`}
+                              style={{ width: `${Math.max(mastery.score * 100, 3)}%` }}
+                            />
+                          )}
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>{mastery.questions} questions</span>
@@ -300,7 +323,11 @@ const Dashboard = () => {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-bold">{examReadiness.score}</span>
+                {progressLoading ? (
+                  <Skeleton className="h-10 w-12" />
+                ) : (
+                  <span className="text-4xl font-bold">{examReadiness.score}</span>
+                )}
                 <span className="text-xs text-muted-foreground">SCORE</span>
               </div>
             </div>
@@ -336,7 +363,7 @@ const Dashboard = () => {
                   <span>Continue Learning</span>
                 </div>
                 <p className="text-xs text-blue-600 dark:text-blue-300 mb-2">
-                  Read Chapter 1 to get started
+                  Start with Chapter 1: Overview
                 </p>
                 <Button
                   variant="outline"

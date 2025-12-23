@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Check, BookOpen, Scale, ScrollText, BookOpenCheck, ChevronDown, FileText, Gavel, AlertCircle, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { db, Textbook as ITextbook, Chapter as IChapter, Part as IPart, Section as ISection, ContentMarker } from "@/lib/db";
+import type { TextbookPage, PageFootnote } from "@/lib/db";
 import { TEXTBOOK_STRUCTURE, getAllChapters, getPartForChapter, getSectionEndPage, countContentTypes, SectionDef } from "@/lib/textbook/structure";
-import { extractChapterPages, ChapterPage } from "@/lib/parser";
+import { importTextbookFromJSON, getPagesByRange, getFootnotesForPages } from "@/lib/import-textbook";
 import { v4 as uuidv4 } from 'uuid';
 import { useLiveQuery } from "dexie-react-hooks";
 import { useOutletContext } from "react-router-dom";
@@ -45,36 +46,58 @@ const TextbookPage = () => {
     // Full Content Reading State (Section-based)
     const [readingSection, setReadingSection] = useState<ISection | null>(null);
     const [readingChapter, setReadingChapter] = useState<IChapter | null>(null);
-    const [sectionChunks, setSectionChunks] = useState<{ content: string; pageNumbers: number[] }[]>([]);
+    const [sectionPages, setSectionPages] = useState<TextbookPage[]>([]);
+    const [pageFootnotes, setPageFootnotes] = useState<Map<string, PageFootnote[]>>(new Map());
     const [loadingContent, setLoadingContent] = useState(false);
     const [allSections, setAllSections] = useState<ISection[]>([]);
+    const [importReady, setImportReady] = useState(false);
+    const [importError, setImportError] = useState<string | null>(null);
 
-    // Load data from database
+    // Import textbook JSON on mount - must complete before loading data
+    const hasImported = useRef(false);
     useEffect(() => {
+        if (!hasImported.current) {
+            hasImported.current = true;
+            importTextbookFromJSON().then(result => {
+                if (result.success) {
+                    if (!result.alreadyImported) {
+                        console.log(`[Textbook] ${result.message}`);
+                    }
+                } else {
+                    console.error(`[Textbook] Import failed: ${result.message}`);
+                    setImportError(result.message);
+                }
+                // Mark import as ready so DB queries can proceed
+                setImportReady(true);
+            }).catch((err) => {
+                console.error('[Textbook] Critical import error:', err);
+                setImportError(`Critical error: ${err.message}`);
+                setImportReady(true);
+            });
+        }
+    }, []);
+
+    // Load data from database - only after import is ready
+    useEffect(() => {
+        if (!importReady) return; // Wait for import to complete
+
         if (masterBook) {
             db.parts.where('textbookId').equals(masterBook.id).toArray().then(setParts);
             db.chapters.where('textbookId').equals(masterBook.id).toArray().then((chaps) => {
                 setChapters(chaps.sort((a, b) => a.number - b.number));
             });
             db.contentMarkers.where('textbookId').equals(masterBook.id).toArray().then(setContentMarkers);
-        } else {
-            setParts([]);
-            setChapters([]);
-            setContentMarkers([]);
         }
-    }, [masterBook]);
+        // Don't clear state when masterBook is undefined - prevents flash during import
+    }, [masterBook, importReady]);
 
     // Initialize from hardcoded structure
     const initializeCourse = async () => {
         setIsProcessing(true);
         setProgress(5);
-        setStatus("Loading Source Text...");
+        setStatus("Initializing Course Structure...");
 
         try {
-            // Verify the text file is available
-            const response = await fetch("/fundamentals.txt");
-            if (!response.ok) throw new Error("Failed to load source text file");
-
             const textbookId = uuidv4();
 
             setStatus("Building Structure from TOC...");
@@ -84,7 +107,7 @@ const TextbookPage = () => {
                 id: textbookId,
                 userId: userId,
                 title: "Fundamentals of Corporate Tax",
-                fileName: "fundamentals.txt",
+                fileName: "corporate-tax-textbook.json",
                 totalPages: 735,
                 uploadDate: new Date(),
                 processed: true
@@ -200,9 +223,9 @@ const TextbookPage = () => {
                     }
                 }
 
-                await db.chapters.bulkAdd(newChapters);
-                await db.sections.bulkAdd(newSections);
-                await db.contentMarkers.bulkAdd(newMarkers);
+                await db.chapters.bulkPut(newChapters);
+                await db.sections.bulkPut(newSections);
+                await db.contentMarkers.bulkPut(newMarkers);
 
                 setProgress(90);
             });
@@ -213,8 +236,8 @@ const TextbookPage = () => {
             toast.success(`Loaded ${getAllChapters().length} chapters with ${stats.problems} problems!`);
 
         } catch (err) {
-            console.error(err);
-            setStatus("Error: " + err);
+            console.error('[Textbook] Error initializing course:', err);
+            setStatus("Error: " + String(err));
             toast.error("Failed to load course material");
         } finally {
             setIsProcessing(false);
@@ -233,18 +256,23 @@ const TextbookPage = () => {
     // Reset course data
     const resetCourseData = async () => {
         if (masterBook) {
-            await db.transaction('rw', [db.textbooks, db.parts, db.chapters, db.sections, db.contentMarkers], async () => {
+            await db.transaction('rw', [db.textbooks, db.parts, db.chapters, db.sections, db.contentMarkers, db.textbookPages, db.pageFootnotes], async () => {
                 await db.parts.where('textbookId').equals(masterBook.id).delete();
                 await db.chapters.where('textbookId').equals(masterBook.id).delete();
                 await db.sections.where('textbookId').equals(masterBook.id).delete();
                 await db.contentMarkers.where('textbookId').equals(masterBook.id).delete();
                 await db.textbooks.delete(masterBook.id);
+
+                // Clear imported content to force re-import of new Markdown/JSON
+                await db.textbookPages.clear();
+                await db.pageFootnotes.clear();
             });
-            toast.info("Course data reset. Reinitializing...");
+            toast.info("Course data and content cache cleared. Reloading...");
+            setTimeout(() => window.location.reload(), 500);
         }
     };
 
-    // Load section content for enhanced reader
+    // Load section content for enhanced reader - now from database
     const loadSectionContent = async (section: ISection, chapter: IChapter) => {
         setLoadingContent(true);
         setReadingSection(section);
@@ -255,22 +283,48 @@ const TextbookPage = () => {
             const chapterSections = await db.sections.where('chapterId').equals(chapter.id).sortBy('letter');
             setAllSections(chapterSections);
 
-            // Fetch the source text
-            const response = await fetch("/fundamentals.txt");
-            if (!response.ok) throw new Error("Failed to load source text");
+            // Query pages from database for this section's page range
+            const pages = await getPagesByRange(section.startPage, section.endPage);
 
-            const text = await response.text();
+            if (pages.length === 0) {
+                // Fallback: try to get pages by sectionId if range didn't work
+                const sectionPages = await db.textbookPages
+                    .where('sectionId')
+                    .equals(section.id)
+                    .sortBy('pageNumber');
 
-            // Extract pages for this section
-            const pages = extractChapterPages(text, section.startPage, section.endPage);
+                if (sectionPages.length > 0) {
+                    setSectionPages(sectionPages);
+                    // Get footnotes for these pages and convert to Map
+                    const footnotes = await getFootnotesForPages(sectionPages.map(p => p.id));
+                    const footnotesMap = new Map<string, PageFootnote[]>();
+                    for (const fn of footnotes) {
+                        if (!footnotesMap.has(fn.pageId)) {
+                            footnotesMap.set(fn.pageId, []);
+                        }
+                        footnotesMap.get(fn.pageId)!.push(fn);
+                    }
+                    setPageFootnotes(footnotesMap);
+                } else {
+                    toast.error("No content found for this section");
+                    setReadingSection(null);
+                    setReadingChapter(null);
+                    return;
+                }
+            } else {
+                setSectionPages(pages);
+                // Get footnotes for these pages and convert to Map
+                const footnotes = await getFootnotesForPages(pages.map(p => p.id));
+                const footnotesMap = new Map<string, PageFootnote[]>();
+                for (const fn of footnotes) {
+                    if (!footnotesMap.has(fn.pageId)) {
+                        footnotesMap.set(fn.pageId, []);
+                    }
+                    footnotesMap.get(fn.pageId)!.push(fn);
+                }
+                setPageFootnotes(footnotesMap);
+            }
 
-            // Convert to chunks format
-            const chunks = pages.map(p => ({
-                content: p.content,
-                pageNumbers: [p.pageNumber]
-            }));
-
-            setSectionChunks(chunks);
             logActivity('READ_CHAPTER', { sectionId: section.id, sectionTitle: section.title });
         } catch (err) {
             console.error(err);
@@ -345,20 +399,21 @@ const TextbookPage = () => {
                             onClick={() => {
                                 setReadingSection(null);
                                 setReadingChapter(null);
-                                setSectionChunks([]);
+                                setSectionPages([]);
+                                setPageFootnotes(new Map());
                             }}
                         >
                             ← Back to Course
                         </Button>
                         <EnhancedReader
-                            chunks={sectionChunks.map((c, i) => ({
-                                id: `chunk-${i}`,
+                            chunks={sectionPages.map((page, i) => ({
+                                id: page.id,
                                 textbookId: masterBook?.id || '',
                                 partId: '',
                                 chapterId: readingChapter.id,
                                 sectionId: readingSection.id,
-                                content: c.content,
-                                pageNumbers: c.pageNumbers,
+                                content: page.content,
+                                pageNumbers: [page.pageNumber],
                                 tokenCount: 0,
                                 statutoryRefs: [],
                                 caseRefs: [],
@@ -389,15 +444,17 @@ const TextbookPage = () => {
                     <h1 className="text-3xl font-bold tracking-tight">Course Material</h1>
                     <p className="text-muted-foreground">Fundamentals of Corporate Taxation</p>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={resetCourseData}
-                >
-                    <Trash2 size={14} className="mr-2" /> Reset Course Data
-                </Button>
             </div>
+
+            {importError && (
+                <div className="bg-destructive/15 text-destructive p-4 rounded-md border border-destructive/20">
+                    <h3 className="font-semibold flex items-center gap-2">
+                        <span className="text-lg">⚠️</span> Import Failed
+                    </h3>
+                    <p>{importError}</p>
+                </div>
+            )}
+
 
             {/* Stats Cards */}
             <div className="grid grid-cols-4 gap-4">
@@ -616,7 +673,7 @@ const TextbookPage = () => {
                     </div>
                 </CardContent>
             </Card>
-        </div>
+        </div >
     );
 };
 

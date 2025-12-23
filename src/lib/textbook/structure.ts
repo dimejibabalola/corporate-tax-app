@@ -41,6 +41,7 @@ export interface SectionDef {
 }
 
 export interface ChapterDef {
+    id?: string;         // Optional for backwards compatibility
     number: number;
     title: string;
     startPage: number;

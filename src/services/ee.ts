@@ -19,7 +19,7 @@ import { TEXTBOOK_STRUCTURE, getAllChapters, SectionDef, ChapterDef } from '@/li
 export interface EEExample {
     number: number;
     title: string;
-    difficulty: 'basic' | 'intermediate' | 'advanced';
+    difficulty: 'basic' | 'intermediate' | 'exam';
     facts: string;
     question: string;
     analysis: { step: number; issue: string; analysis: string; conclusion: string }[];
@@ -99,7 +99,7 @@ const DEMO_EE_CONTENT: Record<string, EEContentData> = {
             {
                 number: 3,
                 title: 'The Control Trap',
-                difficulty: 'advanced',
+                difficulty: 'exam',
                 facts: 'Carol transfers property to an existing corporation where she will own 70% after the exchange. Existing shareholders own 30%.',
                 question: 'Does § 351 apply?',
                 analysis: [
@@ -228,7 +228,7 @@ const DEMO_EE_CONTENT: Record<string, EEContentData> = {
             {
                 number: 2,
                 title: 'Constructive Ownership Trap',
-                difficulty: 'advanced',
+                difficulty: 'exam',
                 facts: 'Mother owns 60 shares, Son owns 40 shares of Family Corp. Mother\'s 60 shares are redeemed.',
                 question: 'Can Mother get sale treatment under complete termination?',
                 analysis: [
@@ -290,7 +290,7 @@ export async function getEEContent(
     }
 
     // Generate placeholder content for sections without demo
-    const chapter = getAllChapters().find(c => c.id === chapterId || `ch-${c.number}` === chapterId);
+    const chapter = getAllChapters().find(c => `ch-${c.number}` === chapterId);
     const section = chapter?.sections.find(s => s.letter === sectionId.split('-').pop());
 
     if (section) {
@@ -405,14 +405,14 @@ function generatePlaceholderEE(
 export async function generateMoreExamples(
     sectionId: string,
     existingCount: number,
-    difficulty: 'intermediate' | 'advanced' | 'exam'
+    difficulty: 'intermediate' | 'exam'
 ): Promise<EEExample[]> {
     // For now, return placeholder indicating AI generation needed
     return [
         {
             number: existingCount + 1,
             title: `Additional ${difficulty} Example`,
-            difficulty: difficulty === 'exam' ? 'advanced' : difficulty,
+            difficulty: difficulty,
             facts: 'AI-generated examples require Claude API key. Configure in Settings to enable.',
             question: 'What are the tax consequences under these more complex facts?',
             analysis: [

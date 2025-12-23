@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent } from '@/components/ui/card';
 import { ReaderBlock } from './ReaderBlock';
+import { MinerUBlockRenderer, MinerUBlock } from './MinerUBlockRenderer';
 import { CheckPromptCard } from './CheckPromptCard';
 import { SectionOutline } from './SectionOutline';
 import { ContentBlock, FormattedContent, CheckPrompt, Reference } from '@/types/reader';
@@ -58,15 +59,38 @@ export const EnhancedReader = ({
         db.bookmarks.where({ userId, sectionId: section.id }).first()
         , [userId, section.id]);
 
-    // Parse content into blocks
-    const formattedContent = useMemo(() => {
-        return formatSectionContent(
+    // Parse content into blocks - try JSON first, fall back to text parsing
+    const { mineruBlocks, formattedContent, isJsonContent } = useMemo(() => {
+        // Try to parse first chunk as JSON (raw MinerU blocks)
+        let allMineruBlocks: MinerUBlock[] = [];
+        let hasJsonContent = false;
+
+        for (const chunk of chunks) {
+            try {
+                const parsed = JSON.parse(chunk.content);
+                if (Array.isArray(parsed) && parsed.length > 0 && 'type' in parsed[0]) {
+                    allMineruBlocks = allMineruBlocks.concat(parsed);
+                    hasJsonContent = true;
+                }
+            } catch {
+                // Not JSON - will use formatSectionContent fallback
+            }
+        }
+
+        // Always compute formatted content for legacy support
+        const formatted = formatSectionContent(
             chunks,
             section.id,
             section.chapterId,
             section.title,
             sectionLetter
         );
+
+        return {
+            mineruBlocks: allMineruBlocks,
+            formattedContent: formatted,
+            isJsonContent: hasJsonContent
+        };
     }, [chunks, section, sectionLetter]);
 
     // Get check prompts for this section
@@ -163,21 +187,46 @@ export const EnhancedReader = ({
         const elements: JSX.Element[] = [];
         let promptIndex = 0;
 
-        formattedContent.blocks.forEach((block, i) => {
-            elements.push(<ReaderBlock key={`block-${i}`} block={block} />);
-
-            // Check if we should insert a check prompt after this paragraph
-            if (block.type === 'paragraph' && checkPrompts[promptIndex]?.afterParagraph === i) {
+        // If we have JSON MinerU blocks, use MinerUBlockRenderer
+        if (isJsonContent && mineruBlocks.length > 0) {
+            mineruBlocks.forEach((block, i) => {
                 elements.push(
-                    <CheckPromptCard
-                        key={`prompt-${promptIndex}`}
-                        prompt={checkPrompts[promptIndex]}
-                        userId={userId}
+                    <MinerUBlockRenderer
+                        key={`mineru-${i}`}
+                        block={block}
+                        chapterNum={chapterNumber}
                     />
                 );
-                promptIndex++;
-            }
-        });
+
+                // Insert check prompts after text blocks
+                if (block.type === 'text' && !block.text_level && checkPrompts[promptIndex]?.afterParagraph === i) {
+                    elements.push(
+                        <CheckPromptCard
+                            key={`prompt-${promptIndex}`}
+                            prompt={checkPrompts[promptIndex]}
+                            userId={userId}
+                        />
+                    );
+                    promptIndex++;
+                }
+            });
+        } else {
+            // Fallback: use old ReaderBlock for non-JSON content
+            formattedContent.blocks.forEach((block, i) => {
+                elements.push(<ReaderBlock key={`block-${i}`} block={block} />);
+
+                if (block.type === 'paragraph' && checkPrompts[promptIndex]?.afterParagraph === i) {
+                    elements.push(
+                        <CheckPromptCard
+                            key={`prompt-${promptIndex}`}
+                            prompt={checkPrompts[promptIndex]}
+                            userId={userId}
+                        />
+                    );
+                    promptIndex++;
+                }
+            });
+        }
 
         // Add remaining check prompts at the end
         while (promptIndex < checkPrompts.length) {
