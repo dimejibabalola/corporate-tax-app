@@ -8,7 +8,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 const SUPABASE_URL = 'https://wjokjfaffcboifkxkhlz.supabase.co';
-const SUPABASE_KEY = 'sb_secret_RwX0KHhnPyYBwPKeM4mKug_o-Liu0ew';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqb2tqZmFmZmNib2lma3hraGx6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjUxNzYzMCwiZXhwIjoyMDgyMDkzNjMwfQ.M72qJ5Tud5oaNJUEa0PW5C8M0dddKzWqhSwTo4eGOcQ';
 
 const CHAPTER_DEFINITIONS = [
   { number: 1, title: 'An Overview of the Taxation of Corporations and Shareholders', startPage: 3, endPage: 68 },

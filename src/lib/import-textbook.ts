@@ -1,10 +1,11 @@
 /**
  * Import Textbook from MinerU 2.6 Content
  * 
- * ONLY uses MinerU CLI output (content_list.json) for chapter content.
- * No pdfplumber, no fundamentals.txt - pure MinerU.
+ * Priority:
+ * 1. Try loading from Supabase (for deployed app)
+ * 2. Fall back to local MinerU JSON files (for development)
  * 
- * Expected file structure:
+ * Expected file structure (for local):
  * /public/data/mineru/Ch{N}/
  *   - content_list.json (primary content)
  *   - images/ (extracted images)
@@ -13,6 +14,7 @@
 import { db, TextbookPage, PageFootnote, Section, Subsection } from './db';
 import { v4 as uuidv4 } from 'uuid';
 import { loadMinerUChapter, chapterBlocksToMarkdown, ParsedChapter, MinerUBlock, MinerUTextBlock } from './mineru-loader';
+import { initializeFromSupabase, syncSupabaseToLocal } from './supabase-loader';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -202,18 +204,45 @@ function findSectionForPage(pageIdx: number, sections: ParsedSection[]): ParsedS
 // MAIN IMPORT FUNCTION
 // ============================================================================
 
-const IMPORT_VERSION = 11; // v11: Hardcoded Chapter 1 footnote detection
+const IMPORT_VERSION = 12; // v12: Supabase-first loading
 
 /**
- * Import textbook data from MinerU content_list.json files
- * ALWAYS imports fresh data - no caching, no version tracking
+ * Import textbook data - tries Supabase first, then local MinerU JSON
  */
 export async function importTextbookFromJSON(): Promise<ImportResult> {
     try {
-        // Always clear and re-import for reliability
-        // This eliminates all caching bugs - local JSON is fast anyway
-        console.log('[MinerU Import] Starting fresh import...');
-        await clearImportedTextbook();
+        // Check if already imported
+        const existingPages = await db.textbookPages.count();
+        if (existingPages > 0) {
+            console.log('[Import] Data already exists, skipping import');
+            return {
+                success: true,
+                pagesCount: existingPages,
+                footnotesCount: 0,
+                message: 'Data already loaded',
+                alreadyImported: true,
+            };
+        }
+
+        // Try Supabase first (for deployed app)
+        console.log('[Import] Trying Supabase...');
+        try {
+            const supabaseResult = await syncSupabaseToLocal();
+            if (supabaseResult.success && supabaseResult.pages > 0) {
+                console.log('[Import] Loaded from Supabase:', supabaseResult.message);
+                return {
+                    success: true,
+                    pagesCount: supabaseResult.pages,
+                    footnotesCount: 0,
+                    message: supabaseResult.message,
+                };
+            }
+        } catch (supabaseError) {
+            console.log('[Import] Supabase unavailable, falling back to local JSON');
+        }
+
+        // Fall back to local MinerU JSON files
+        console.log('[MinerU Import] Starting local JSON import...');
         localStorage.setItem('mineruImportComplete', 'false');
 
         console.log('[MinerU Import] Starting MinerU-only import with section extraction...');
