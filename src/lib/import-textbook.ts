@@ -14,7 +14,8 @@
 import { db, TextbookPage, PageFootnote, Section, Subsection } from './db';
 import { v4 as uuidv4 } from 'uuid';
 import { loadMinerUChapter, chapterBlocksToMarkdown, ParsedChapter, MinerUBlock, MinerUTextBlock } from './mineru-loader';
-import { initializeFromSupabase, syncSupabaseToLocal } from './supabase-loader';
+import { initializeFromSupabase, syncSupabaseToLocal, ensureTextbookForUser } from './supabase-loader';
+import { supabase } from '@/integrations/supabase/client';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -230,6 +231,13 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
             const supabaseResult = await syncSupabaseToLocal();
             if (supabaseResult.success && supabaseResult.pages > 0) {
                 console.log('[Import] Loaded from Supabase:', supabaseResult.message);
+                
+                // Ensure textbook record exists for current user
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await ensureTextbookForUser(user.id);
+                }
+                
                 return {
                     success: true,
                     pagesCount: supabaseResult.pages,

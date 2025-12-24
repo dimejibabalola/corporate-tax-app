@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { db, Chapter, Section, TextbookPage } from './db';
+import { db, Chapter, Section, TextbookPage, Textbook, Part } from './db';
 
 /**
  * Check if we should load from Supabase (if local DB is empty)
@@ -104,6 +104,7 @@ export async function loadPagesFromSupabase(
 
 /**
  * Sync Supabase data to local IndexedDB for offline use
+ * Also creates the textbook and parts records needed by the UI
  */
 export async function syncSupabaseToLocal(): Promise<{
   success: boolean;
@@ -171,6 +172,46 @@ export async function syncSupabaseToLocal(): Promise<{
       message: `Sync error: ${error instanceof Error ? error.message : 'Unknown error'}`,
     };
   }
+}
+
+/**
+ * Ensure textbook and parts exist for a user
+ * This creates the required records so the UI can display content
+ */
+export async function ensureTextbookForUser(userId: string): Promise<void> {
+  const textbookId = 'corporate-tax';
+  
+  // Check if textbook already exists for this user
+  const existing = await db.textbooks.where('userId').equals(userId).first();
+  if (existing) {
+    console.log('[Supabase] Textbook already exists for user');
+    return;
+  }
+
+  console.log('[Supabase] Creating textbook record for user...');
+
+  // Create textbook record
+  const textbook: Textbook = {
+    id: textbookId,
+    userId: userId,
+    title: 'Fundamentals of Corporate Taxation',
+    fileName: 'corporate-tax-textbook',
+    totalPages: 910,
+    uploadDate: new Date(),
+    processed: true,
+  };
+
+  await db.textbooks.put(textbook);
+
+  // Create Parts
+  const parts: Part[] = [
+    { id: 'part-ONE', textbookId, number: 'ONE', title: 'INTRODUCTION', startPage: 1, endPage: 68 },
+    { id: 'part-TWO', textbookId, number: 'TWO', title: 'TAXATION OF C CORPORATIONS', startPage: 69, endPage: 834 },
+    { id: 'part-THREE', textbookId, number: 'THREE', title: 'TAXATION OF S CORPORATIONS', startPage: 835, endPage: 910 },
+  ];
+
+  await db.parts.bulkPut(parts);
+  console.log('[Supabase] Created textbook and parts for user');
 }
 
 /**
