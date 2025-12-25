@@ -74,6 +74,11 @@ export interface ParsedChapter {
  * Load footnotes from middle.json discarded_blocks
  * MinerU often misclassifies footnotes - they end up in discarded_blocks
  * 
+ * Structure of middle.json:
+ * - pdf_info[].discarded_blocks[].lines[].spans[].content
+ * - Each line may start with a footnote number as a separate span
+ * - Footnotes can span multiple lines within a block
+ * 
  * @param chapterNum - Chapter number
  * @param basePath - Base path to MinerU output
  * @returns Array of footnote blocks with type 'page_footnote'
@@ -83,6 +88,7 @@ async function loadFootnotesFromMiddleJson(
     basePath: string = '/data/mineru'
 ): Promise<MinerUBlock[]> {
     const footnotes: MinerUBlock[] = [];
+    const maxFootnote = CHAPTER_FOOTNOTE_COUNT[`ch-${chapterNum}`] || 200;
 
     try {
         // Try common middle.json paths
@@ -91,7 +97,29 @@ async function loadFootnotesFromMiddleJson(
             `${basePath}/Ch${chapterNum}/middle.json`,
         ];
 
-        let data: { pdf_info?: Array<{ page_idx?: number; page_size?: number[]; discarded_blocks?: Array<{ lines?: Array<{ spans?: Array<{ content?: string }> }>; bbox?: number[] }> }> } | null = null;
+        interface MiddleJsonSpan {
+            content?: string;
+            type?: string;
+        }
+        interface MiddleJsonLine {
+            spans?: MiddleJsonSpan[];
+            bbox?: number[];
+        }
+        interface MiddleJsonBlock {
+            lines?: MiddleJsonLine[];
+            bbox?: number[];
+            type?: string;
+        }
+        interface MiddleJsonPage {
+            page_idx?: number;
+            page_size?: number[];
+            discarded_blocks?: MiddleJsonBlock[];
+        }
+        interface MiddleJsonData {
+            pdf_info?: MiddleJsonPage[];
+        }
+
+        let data: MiddleJsonData | null = null;
 
         for (const path of middleJsonPaths) {
             try {
@@ -110,48 +138,102 @@ async function loadFootnotesFromMiddleJson(
             return footnotes;
         }
 
-        // Extract footnotes from discarded_blocks
+        // Track current footnote being built
+        let currentFootnote: { number: number; text: string; pageIdx: number; bbox: number[] } | null = null;
+        const collectedFootnotes: Map<number, { text: string; pageIdx: number; bbox: number[] }> = new Map();
+
+        // Helper to save current footnote
+        const saveCurrentFootnote = () => {
+            if (!currentFootnote) return;
+            const existing = collectedFootnotes.get(currentFootnote.number);
+            if (existing) {
+                existing.text += ' ' + currentFootnote.text;
+            } else {
+                collectedFootnotes.set(currentFootnote.number, {
+                    text: currentFootnote.text,
+                    pageIdx: currentFootnote.pageIdx,
+                    bbox: currentFootnote.bbox,
+                });
+            }
+        };
+
+        // Helper to start a new footnote
+        const startNewFootnote = (fnNum: number, text: string, pageIdx: number, bbox: number[]) => {
+            saveCurrentFootnote();
+            currentFootnote = { number: fnNum, text, pageIdx, bbox };
+        };
+
+        // Extract footnotes from discarded_blocks - process line by line
         for (const page of data.pdf_info) {
             const pageIdx = page.page_idx ?? 0;
-            const pageSize = page.page_size ?? [612, 792];
-            const pageHeight = pageSize[1] ?? 792;
-            const bottomZone = pageHeight * 0.75;
 
             for (const block of page.discarded_blocks ?? []) {
-                // Extract text from block
-                let text = '';
-                if (block.lines) {
-                    for (const line of block.lines) {
-                        for (const span of line.spans ?? []) {
-                            text += (span.content ?? '') + ' ';
+                if (!block.lines) continue;
+                const blockBbox = block.bbox ?? [0, 0, 0, 0];
+
+                for (const line of block.lines) {
+                    const spans = line.spans ?? [];
+                    if (spans.length === 0) continue;
+
+                    // Get line text
+                    const lineText = spans.map(s => s.content ?? '').join(' ').trim();
+                    if (!lineText) continue;
+
+                    const firstSpan = spans[0];
+                    const firstContent = (firstSpan.content ?? '').trim();
+
+                    // CASE 1: First span is just a number (separate span for footnote number)
+                    // e.g., spans: ["15", "See e.g., Subchapter M..."]
+                    const separateNumberMatch = firstContent.match(/^(\d{1,3})$/);
+                    if (separateNumberMatch) {
+                        const fnNum = parseInt(separateNumberMatch[1]);
+                        if (fnNum >= 1 && fnNum <= maxFootnote) {
+                            const restText = spans.slice(1).map(s => s.content ?? '').join(' ').trim();
+                            startNewFootnote(fnNum, restText, pageIdx, blockBbox);
+                            continue;
                         }
                     }
-                }
-                text = text.trim();
 
-                if (!text) continue;
+                    // CASE 2: Footnote number merged with text (inline number at start)
+                    // e.g., spans: ["16 See, e.g. Subchapter L..."]
+                    const inlineNumberMatch = firstContent.match(/^(\d{1,3})\s+(.+)/);
+                    if (inlineNumberMatch) {
+                        const fnNum = parseInt(inlineNumberMatch[1]);
+                        if (fnNum >= 1 && fnNum <= maxFootnote) {
+                            // Extract the text after the number
+                            const textAfterNum = inlineNumberMatch[2];
+                            const restText = spans.length > 1
+                                ? textAfterNum + ' ' + spans.slice(1).map(s => s.content ?? '').join(' ').trim()
+                                : textAfterNum;
+                            startNewFootnote(fnNum, restText, pageIdx, blockBbox);
+                            continue;
+                        }
+                    }
 
-                // Check if it's a footnote
-                const bbox = block.bbox ?? [0, 0, 0, 0];
-                const yPos = bbox[1] ?? 0;
-
-                // Footnote pattern: starts with number, not just a page number
-                const startsWithNumber = /^\d+\s/.test(text);
-                const isInBottomZone = yPos > bottomZone;
-                const isNotPageNum = !/^\d+$/.test(text.trim());
-
-                if (startsWithNumber && (isInBottomZone || true) && isNotPageNum) {
-                    footnotes.push({
-                        type: 'page_footnote',
-                        text: text.replace(/\n/g, ' '),
-                        bbox: bbox as [number, number, number, number],
-                        page_idx: pageIdx,
-                    });
+                    // Not a new footnote - append to current if we have one
+                    if (currentFootnote) {
+                        currentFootnote.text += ' ' + lineText;
+                    }
                 }
             }
         }
 
-        console.log(`[MinerU] Recovered ${footnotes.length} footnotes from discarded_blocks`);
+        // Save last footnote
+        saveCurrentFootnote();
+
+        // Convert to MinerUBlock format, sorted by footnote number
+        const sortedNumbers = Array.from(collectedFootnotes.keys()).sort((a, b) => a - b);
+        for (const fnNum of sortedNumbers) {
+            const fn = collectedFootnotes.get(fnNum)!;
+            footnotes.push({
+                type: 'page_footnote',
+                text: `${fnNum} ${fn.text.replace(/\s+/g, ' ').trim()}`,
+                bbox: fn.bbox as [number, number, number, number],
+                page_idx: fn.pageIdx,
+            });
+        }
+
+        console.log(`[MinerU] Recovered ${footnotes.length} footnotes from discarded_blocks (max expected: ${maxFootnote})`);
 
     } catch (error) {
         console.warn(`[MinerU] Could not load footnotes from middle.json:`, error);
