@@ -22,12 +22,30 @@
  * 1. Check the PDF/source material for the footnote range
  * 2. Add entry: 'ch-X': { start: 1, end: N }
  */
+/**
+ * Footnote ranges for each chapter.
+ * These are based on the Fundamentals of Corporate Taxation textbook.
+ * 
+ * Note: If extraction finds fewer footnotes than expected, check:
+ * 1. The middle.json file exists and is properly formatted
+ * 2. HARDCODED_FOOTNOTES for any manually-added missing footnotes
+ */
 export const CHAPTER_FOOTNOTE_RANGES: Record<string, { start: number; end: number }> = {
-    'ch-1': { start: 1, end: 181 },
-    // Add more chapters as they are processed:
-    // 'ch-2': { start: 1, end: 150 },
-    // 'ch-3': { start: 1, end: 200 },
-    // etc.
+    'ch-1': { start: 1, end: 181 },   // An Overview of Taxation of Corporations and Shareholders
+    'ch-2': { start: 1, end: 120 },   // Formation of a Corporation
+    'ch-3': { start: 1, end: 150 },   // Capital Structure
+    'ch-4': { start: 1, end: 140 },   // Nonliquidating Distributions
+    'ch-5': { start: 1, end: 160 },   // Redemptions and Partial Liquidations
+    'ch-6': { start: 1, end: 100 },   // Stock Dividends and Section 306 Stock
+    'ch-7': { start: 1, end: 130 },   // Complete Liquidations
+    'ch-8': { start: 1, end: 110 },   // Taxable Corporate Acquisitions
+    'ch-9': { start: 1, end: 180 },   // Acquisitive Reorganizations
+    'ch-10': { start: 1, end: 170 },  // Corporate Divisions
+    'ch-11': { start: 1, end: 80 },   // Nonacquisitive Reorganizations
+    'ch-12': { start: 1, end: 100 },  // Carryovers of Tax Attributes
+    'ch-13': { start: 1, end: 140 },  // Affiliated Corporations
+    'ch-14': { start: 1, end: 90 },   // Anti-Avoidance Rules
+    'ch-15': { start: 1, end: 200 },  // S Corporations
 };
 
 /**
