@@ -6,6 +6,7 @@
  * Just JSON → JSX.
  */
 
+import React from 'react';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
 
@@ -97,6 +98,90 @@ function splitFootnotes(text: string): { number: number; text: string }[] {
     return footnotes;
 }
 
+/**
+ * Convert inline footnote reference numbers to clickable superscript links.
+ * Detects patterns like superscript numbers or numbers preceded by certain patterns.
+ * 
+ * Matches:
+ * - Standalone superscript-like numbers at word boundaries (e.g., "text1" → "text<sup>1</sup>")
+ * - Numbers following punctuation that look like footnote refs (e.g., "sentence.3" → "sentence.<sup>3</sup>")
+ */
+function renderTextWithFootnoteLinks(text: string, chapterNum: number): React.ReactNode[] {
+    // Pattern to match footnote reference numbers
+    // Looks for numbers 1-200 that appear after text (word boundary or punctuation)
+    // but NOT numbers that are part of citations like "§ 351" or dates
+    const footnoteRefPattern = /(\S)(\d{1,3})(?=[\s.,;:)\]"]|$)/g;
+    
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let key = 0;
+    
+    // Reset lastIndex for exec
+    footnoteRefPattern.lastIndex = 0;
+    
+    while ((match = footnoteRefPattern.exec(text)) !== null) {
+        const num = parseInt(match[2]);
+        const precedingChar = match[1];
+        
+        // Skip if the number is too large (probably not a footnote)
+        // or if it's preceded by § or Section (it's a statute ref)
+        // or if it's preceded by a digit (it's part of a larger number)
+        if (num > 200 || /[\d§]/.test(precedingChar)) {
+            continue;
+        }
+        
+        // Skip common non-footnote patterns
+        const beforeContext = text.slice(Math.max(0, match.index - 10), match.index + 1);
+        if (/§\s*$/.test(beforeContext) || /Section\s*$/i.test(beforeContext) || /\d$/.test(beforeContext)) {
+            continue;
+        }
+        
+        // Add text before this match (including the preceding char)
+        if (match.index + 1 > lastIndex) {
+            parts.push(text.slice(lastIndex, match.index + 1));
+        }
+        
+        // Add the clickable footnote reference
+        parts.push(
+            <a
+                key={key++}
+                href={`#fn-${chapterNum}-${num}`}
+                className="footnote-ref text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 no-underline"
+                title={`Go to footnote ${num}`}
+                onClick={(e) => {
+                    e.preventDefault();
+                    const target = document.getElementById(`fn-${chapterNum}-${num}`);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Briefly highlight the footnote
+                        target.classList.add('bg-yellow-100', 'dark:bg-yellow-900/30');
+                        setTimeout(() => {
+                            target.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/30');
+                        }, 2000);
+                    }
+                }}
+            >
+                <sup className="font-medium">{num}</sup>
+            </a>
+        );
+        
+        lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+    }
+    
+    // If no footnote refs found, return original text
+    if (parts.length === 0) {
+        return [text];
+    }
+    
+    return parts;
+}
+
 // ============================================================================
 // BLOCK RENDERERS
 // ============================================================================
@@ -151,10 +236,10 @@ export function MinerUBlockRenderer({ block, chapterNum = 1 }: BlockProps) {
                 }
             }
 
-            // Body text - paragraph
+            // Body text - paragraph with clickable footnote references
             return (
                 <p className="leading-relaxed mb-4 text-stone-700 dark:text-stone-300 text-justify hyphens-auto">
-                    {text}
+                    {renderTextWithFootnoteLinks(text, chapterNum)}
                 </p>
             );
         }
@@ -289,20 +374,28 @@ export function MinerUBlockRenderer({ block, chapterNum = 1 }: BlockProps) {
 
             if (footnotes.length === 0) {
                 // Fallback: render as single footnote if splitting fails
+                // Try to extract footnote number from text
+                const numMatch = block.text?.match(/^(\d+)/);
+                const fnNum = numMatch ? parseInt(numMatch[1]) : 0;
+                
                 return (
-                    <aside className="page-footnote mt-2 py-2 pl-4 text-sm text-stone-600 dark:text-stone-400 border-l-2 border-stone-300 dark:border-stone-600">
+                    <aside 
+                        id={fnNum ? `fn-${chapterNum}-${fnNum}` : undefined}
+                        className="page-footnote mt-2 py-2 pl-4 text-sm text-stone-600 dark:text-stone-400 border-l-2 border-stone-300 dark:border-stone-600 transition-colors duration-300"
+                    >
                         {block.text}
                     </aside>
                 );
             }
 
-            // Render each footnote separately
+            // Render each footnote separately with IDs for linking
             return (
                 <div className="page-footnotes-group mt-4 pt-3 border-t border-stone-200 dark:border-stone-700">
                     {footnotes.map((fn) => (
                         <aside
                             key={fn.number}
-                            className="footnote text-sm text-stone-600 dark:text-stone-400 mb-2 leading-relaxed"
+                            id={`fn-${chapterNum}-${fn.number}`}
+                            className="footnote text-sm text-stone-600 dark:text-stone-400 mb-2 leading-relaxed transition-colors duration-300 scroll-mt-20"
                         >
                             <sup className="font-semibold text-stone-700 dark:text-stone-300 mr-1">
                                 {fn.number}
