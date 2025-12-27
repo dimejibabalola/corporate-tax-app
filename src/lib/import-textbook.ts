@@ -205,25 +205,16 @@ function findSectionForPage(pageIdx: number, sections: ParsedSection[]): ParsedS
 // MAIN IMPORT FUNCTION
 // ============================================================================
 
-// Build-time import version - changes with every build to force fresh data
-// Uses build timestamp to ensure uniqueness
-const BUILD_TIMESTAMP = import.meta.env.VITE_BUILD_TIME || Date.now().toString();
-const IMPORT_VERSION = `build-${BUILD_TIMESTAMP}`;
-
 /**
  * Import textbook data - tries Supabase first, then local MinerU JSON
  */
 export async function importTextbookFromJSON(): Promise<ImportResult> {
     try {
-        // Check version - if different from stored version, clear and re-import
-        const storedVersion = localStorage.getItem('mineruImportVersion');
+        // Check if data already exists
         const existingPages = await db.textbookPages.count();
         
-        if (storedVersion !== IMPORT_VERSION && existingPages > 0) {
-            console.log(`[Import] Version mismatch: stored=${storedVersion}, current=${IMPORT_VERSION}. Clearing old data...`);
-            await clearImportedTextbook();
-        } else if (existingPages > 0) {
-            console.log('[Import] Data already exists with current version, skipping import');
+        if (existingPages > 0) {
+            console.log('[Import] Data already exists, skipping import');
             return {
                 success: true,
                 pagesCount: existingPages,
@@ -424,8 +415,7 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
         }
 
 
-        // Store import version AND mark as complete (both must be set for import to be considered done)
-        localStorage.setItem('mineruImportVersion', IMPORT_VERSION.toString());
+        // Mark import as complete
         localStorage.setItem('mineruImportComplete', 'true');
         localStorage.setItem('textbookImported', 'true');
 

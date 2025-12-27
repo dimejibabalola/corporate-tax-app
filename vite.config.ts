@@ -4,10 +4,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 export default defineConfig(() => ({
-  define: {
-    // Inject build timestamp for cache busting
-    'import.meta.env.VITE_BUILD_TIME': JSON.stringify(Date.now().toString()),
-  },
   server: {
     host: "::",
     port: 5180, // Dedicated port for Corporate Tax I
