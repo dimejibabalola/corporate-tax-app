@@ -16,7 +16,6 @@
 import { ContentBlock } from '@/types/reader';
 import { 
     extractFootnotesFromMiddleJson, 
-    CHAPTER_FOOTNOTE_RANGES,
     logExtractionSummary 
 } from './footnote-extractor';
 
@@ -98,33 +97,11 @@ async function loadFootnotesFromMiddleJson(
 }
 
 // ============================================================================
-// FOOTNOTE DETECTION HELPERS
+// FOOTNOTE HELPERS
 // ============================================================================
 
-// Re-export for backwards compatibility
-const CHAPTER_FOOTNOTE_COUNT: Record<string, number> = Object.fromEntries(
-    Object.entries(CHAPTER_FOOTNOTE_RANGES).map(([key, range]) => [key, range.end])
-);
-
-function isFootnote(block: MinerUBlock, chapterId: string): boolean {
-    // Only check text blocks (already handled page_footnote types don't need check)
-    if (block.type !== 'text') return false;
-
-    // Ensure it's body text (level 0), not a heading
-    // (MinerU sometimes marks headings as level 0 if small, but usually headings have level > 0)
-    if ((block as MinerUTextBlock).text_level > 0) return false;
-
-    const text = block.text?.trim() || '';
-    const maxFootnote = CHAPTER_FOOTNOTE_COUNT[chapterId] || 0;
-
-    // Match: starts with number 1-maxFootnote, then space
-    // e.g. "1 Some text" or "143 Ibid."
-    const match = text.match(/^(\d+)\s+/);
-    if (!match) return false;
-
-    const num = parseInt(match[1]);
-    return num >= 1 && num <= maxFootnote;
-}
+// Note: Footnotes are now exclusively loaded from middle.json via footnote-extractor.ts
+// The content_list.json "discarded" blocks are filtered out as duplicates
 
 /**
  * Load a chapter's content from MinerU content_list.json
@@ -158,28 +135,43 @@ export async function loadMinerUChapter(
 
         console.log(`[MinerU] Loaded ${minerUBlocks.length} blocks for Chapter ${chapterNum}`);
 
-        // HARDCODED FOOTNOTE DETECTION
-        // Identify blocks that look like footnotes based on chapter rules
-        const chapterId = `ch-${chapterNum}`;
-        let recoveredCount = 0;
-
-        for (const block of minerUBlocks) {
-            if (isFootnote(block, chapterId)) {
-                // Must cast to allow changing type property strictly
-                (block as any).type = 'page_footnote';
-                recoveredCount++;
+        // Load footnotes from middle.json (primary source - properly extracted)
+        const footnotes = await loadFootnotesFromMiddleJson(chapterNum, basePath);
+        
+        // Create a Set of footnote numbers we already have from middle.json
+        const existingFootnoteNums = new Set<number>();
+        for (const fn of footnotes) {
+            const match = fn.text?.match(/^(\d{1,3})\s/);
+            if (match) {
+                existingFootnoteNums.add(parseInt(match[1]));
             }
         }
+        
+        console.log(`[MinerU] Loaded ${footnotes.length} footnotes from middle.json (nums: ${[...existingFootnoteNums].slice(0, 10).join(', ')}...)`);
 
-        if (recoveredCount > 0) {
-            console.log(`[MinerU] Detected/Converted ${recoveredCount} hardcoded footnotes in content body`);
-        }
+        // Filter out "discarded" blocks from content_list.json that are duplicate footnotes
+        // and don't convert text blocks to footnotes (middle.json has the canonical source)
+        const filteredBlocks = minerUBlocks.filter(block => {
+            // Skip discarded blocks that look like footnotes (they're duplicates from content_list.json)
+            if (block.type === 'discarded') {
+                const text = block.text?.trim() || '';
+                const match = text.match(/^(\d{1,3})\s/);
+                if (match) {
+                    const num = parseInt(match[1]);
+                    // Skip if it looks like a footnote number in range
+                    if (num >= 1 && num <= 200) {
+                        return false; // Filter out - we have this from middle.json
+                    }
+                }
+            }
+            return true;
+        });
+        
+        console.log(`[MinerU] Filtered ${minerUBlocks.length - filteredBlocks.length} duplicate discarded blocks`);
 
-        // Also load footnotes from middle.json (they're in discarded_blocks)
-        const footnotes = await loadFootnotesFromMiddleJson(chapterNum, basePath);
-
-        // Combine all blocks (content + footnotes)
-        const allBlocks = [...minerUBlocks, ...footnotes];
+        // Combine content blocks + footnotes
+        // Footnotes will be sorted by number before being grouped by page
+        const allBlocks = [...filteredBlocks, ...footnotes];
 
         // Convert MinerU blocks to our ContentBlock format
         const blocks: ContentBlock[] = [];
@@ -206,6 +198,33 @@ export async function loadMinerUChapter(
                 }
                 blocksByPage.get(pageIdx)!.push(contentBlock);
             }
+        }
+        
+        // Sort footnotes within each page by their number
+        for (const [pageIdx, pageBlocks] of rawBlocksByPage.entries()) {
+            // Separate footnotes from other blocks
+            const footnoteBlocks: MinerUBlock[] = [];
+            const otherBlocks: MinerUBlock[] = [];
+            
+            for (const block of pageBlocks) {
+                if (block.type === 'page_footnote') {
+                    footnoteBlocks.push(block);
+                } else {
+                    otherBlocks.push(block);
+                }
+            }
+            
+            // Sort footnotes by their number
+            footnoteBlocks.sort((a, b) => {
+                const aMatch = a.text?.match(/^(\d+)/);
+                const bMatch = b.text?.match(/^(\d+)/);
+                const aNum = aMatch ? parseInt(aMatch[1]) : 0;
+                const bNum = bMatch ? parseInt(bMatch[1]) : 0;
+                return aNum - bNum;
+            });
+            
+            // Recombine: other blocks first, then sorted footnotes
+            rawBlocksByPage.set(pageIdx, [...otherBlocks, ...footnoteBlocks]);
         }
 
         return {

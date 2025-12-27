@@ -56,46 +56,28 @@ function isEyebrow(text: string, bbox: [number, number, number, number] | undefi
 }
 
 /**
- * Split merged footnotes into individual entries
- * Handles patterns like: "3 infra. 4 See generally Bagley..."
- * Splits on: number followed by common legal citation starters
+ * Parse a single footnote text that starts with a number.
+ * Handles format: "N text..." where N is the footnote number.
+ * 
+ * Returns { number, text } or null if not a valid footnote.
  */
-function splitFootnotes(text: string): { number: number; text: string }[] {
-    const footnotes: { number: number; text: string }[] = [];
+function parseFootnote(text: string): { number: number; text: string } | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
 
-    // Pattern to match footnote number followed by common citation starts
-    // Matches: "4 See", "5 Id.", "6 Cf.", etc.
-    const splitPattern = /(?=\d+\s+(?:See|Id\.|Cf\.|Compare|E\.g\.|Note|For|In|The|A|An|Under|Section|§|But see|Generally|I\.R\.C\.))/gi;
+    // Match: number at start, followed by space and text
+    // The number must be 1-3 digits and followed by a space
+    const match = trimmed.match(/^(\d{1,3})\s+([\s\S]+)$/);
+    if (!match) return null;
 
-    const parts = text.split(splitPattern).filter(Boolean);
+    const num = parseInt(match[1]);
+    // Validate footnote number range (1-200 is reasonable)
+    if (num < 1 || num > 200) return null;
 
-    for (const part of parts) {
-        const trimmed = part.trim();
-        if (!trimmed) continue;
-
-        // Extract footnote number from the start
-        const match = trimmed.match(/^(\d+)\s+([\s\S]*)$/);
-        if (match) {
-            footnotes.push({
-                number: parseInt(match[1]),
-                text: match[2].trim()
-            });
-        } else {
-            // If no number found, append to previous footnote or create new one
-            const numMatch = trimmed.match(/^(\d+)/);
-            if (numMatch) {
-                footnotes.push({
-                    number: parseInt(numMatch[1]),
-                    text: trimmed.slice(numMatch[0].length).trim()
-                });
-            }
-        }
-    }
-
-    // Sort by footnote number
-    footnotes.sort((a, b) => a.number - b.number);
-
-    return footnotes;
+    return {
+        number: num,
+        text: match[2].trim()
+    };
 }
 
 /**
@@ -384,41 +366,29 @@ export function MinerUBlockRenderer({ block, chapterNum = 1 }: BlockProps) {
         }
 
         case 'page_footnote': {
-            // Split merged footnotes into individual entries
-            const footnotes = splitFootnotes(block.text || '');
-
-            if (footnotes.length === 0) {
-                // Fallback: render as single footnote if splitting fails
-                // Try to extract footnote number from text
-                const numMatch = block.text?.match(/^(\d+)/);
-                const fnNum = numMatch ? parseInt(numMatch[1]) : 0;
-                
+            // Parse the footnote text (format: "N text...")
+            const parsed = parseFootnote(block.text || '');
+            
+            if (!parsed) {
+                // Fallback: render as generic note if parsing fails
                 return (
-                    <aside 
-                        id={fnNum ? `fn-${chapterNum}-${fnNum}` : undefined}
-                        className="page-footnote mt-2 py-2 pl-4 text-sm text-stone-600 dark:text-stone-400 border-l-2 border-stone-300 dark:border-stone-600 transition-colors duration-300"
-                    >
+                    <aside className="page-footnote mt-2 py-2 pl-4 text-sm text-stone-600 dark:text-stone-400 border-l-2 border-stone-300 dark:border-stone-600 transition-colors duration-300">
                         {block.text}
                     </aside>
                 );
             }
 
-            // Render each footnote separately with IDs for linking
+            // Render single footnote with ID for linking
             return (
-                <div className="page-footnotes-group mt-4 pt-3 border-t border-stone-200 dark:border-stone-700">
-                    {footnotes.map((fn) => (
-                        <aside
-                            key={fn.number}
-                            id={`fn-${chapterNum}-${fn.number}`}
-                            className="footnote text-sm text-stone-600 dark:text-stone-400 mb-2 leading-relaxed transition-colors duration-300 scroll-mt-20"
-                        >
-                            <sup className="font-semibold text-stone-700 dark:text-stone-300 mr-1">
-                                {fn.number}
-                            </sup>
-                            <span>{fn.text}</span>
-                        </aside>
-                    ))}
-                </div>
+                <aside
+                    id={`fn-${chapterNum}-${parsed.number}`}
+                    className="footnote text-sm text-stone-600 dark:text-stone-400 mb-2 leading-relaxed transition-colors duration-300 scroll-mt-20 pt-2 first:border-t first:border-stone-200 dark:first:border-stone-700 first:mt-4"
+                >
+                    <sup className="font-semibold text-stone-700 dark:text-stone-300 mr-1">
+                        {parsed.number}
+                    </sup>
+                    <span>{parsed.text}</span>
+                </aside>
             );
         }
 
