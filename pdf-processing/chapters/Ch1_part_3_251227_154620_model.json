@@ -1,0 +1,1423 @@
+[
+    [
+        {
+            "type": "header",
+            "bbox": [
+                0.096,
+                0.058,
+                0.189,
+                0.073
+            ],
+            "angle": 0,
+            "content": "CHAPTER 1"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.356,
+                0.044,
+                0.767,
+                0.075
+            ],
+            "angle": 0,
+            "content": "AN OVERVIEW OF THE TAXATION OF CORPORATIONS AND SHAREHOLDERS"
+        },
+        {
+            "type": "page_number",
+            "bbox": [
+                0.853,
+                0.06,
+                0.875,
+                0.074
+            ],
+            "angle": 0,
+            "content": "43"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.093,
+                0.092,
+                0.766,
+                0.126
+            ],
+            "angle": 0,
+            "content": "■ JUSTICE KENNEDY took no part in the consideration or decision of this case."
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.095,
+                0.146,
+                0.375,
+                0.166
+            ],
+            "angle": 0,
+            "content": "H. TAX POLICY ISSUES"
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.097,
+                0.184,
+                0.316,
+                0.203
+            ],
+            "angle": 0,
+            "content": "1. INTRODUCTION"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.096,
+                0.214,
+                0.77,
+                0.379
+            ],
+            "angle": 0,
+            "content": "In the first edition of this book, published over 35 years ago, we observed that “[t]he corporate tax system previewed here is not engraved in stone,” and predicted that “change is in the air, and tax lawyers and students must be prepared, often at a moment’s notice, to discard old concepts and master new ones.”168 Before the ink was dry, Congress enacted the historic Tax Reform Act of 1986. Subsequent developments, most recently the enactment of the Tax Cuts and Jobs Act in 2017, have contributed to a dynamic tax environment—and frequent revisions of tax textbooks."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.096,
+                0.384,
+                0.774,
+                0.681
+            ],
+            "angle": 0,
+            "content": "And so, as in every prior edition, we ask—what of the future? In a few previous editions, we observed that the spirited tax reform debate had subsided. That is no longer true. Corporate tax reform returned to center stage to play a starring role in 2017, but many of the provisions of the 2017 Act are only temporary unless Congress chooses to extend them or make them permanent. Tax lawyers (and students) must continue to be nimble and prepared, often with little notice, to discard (or relearn) old concepts and master new ones. Today's law may be tomorrow's history. To assist in that aspect of the learning process and provide perspective, historical and policy materials have been interspersed throughout the text, beginning here with consideration of the pros and cons of \"integration\" of the corporate and individual taxes and other corporate tax reform options. Additional proposals emanating from Congress, the Treasury Department, the American Law Institute, and commentators are considered in later chapters in connection with the specific issues and trouble spots to which they relate."
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.1,
+                0.695,
+                0.441,
+                0.715
+            ],
+            "angle": 0,
+            "content": "2. CORPORATE INTEGRATION"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.099,
+                0.721,
+                0.777,
+                0.855
+            ],
+            "angle": 0,
+            "content": "Many economists and corporate finance theorists contend that the double tax on corporate profits creates economic distortions and is inequitable, especially when compared to the pass-through treatment available to businesses that operate as partnerships, limited liability companies, or S corporations. Calls frequently have been made for \"integration\" of the individual and corporate income taxes into a single comprehensive system,[169] and Congress gradually has moved in that"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.1,
+                0.878,
+                0.776,
+                0.912
+            ],
+            "angle": 0,
+            "content": "168 Lind, Schwarz, Lathrope & Rosenberg, Cases and Materials on Fundamentals of Corporate Taxation 3-4 (1st ed. 1985)."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.1,
+                0.909,
+                0.777,
+                0.97
+            ],
+            "angle": 0,
+            "content": "See, e.g., McLure, \"Integration of the Personal and Corporate Income Taxes: The Missing Element in Recent Tax Reform Proposals,\" 88 Harv. L. Rev. 532 (1975); Canellos, \"Corporate Tax Integration: By Design or By Default?\" in Corporate Tax Reform: A Report of the Invitational Conference on Subchapter C 129 (Am. Bar Ass'n Section on Taxation; N.Y. State"
+        },
+        {
+            "type": "list",
+            "bbox": [
+                0.1,
+                0.878,
+                0.777,
+                0.97
+            ],
+            "angle": 0,
+            "content": null
+        }
+    ],
+    [
+        {
+            "type": "page_number",
+            "bbox": [
+                0.137,
+                0.064,
+                0.16,
+                0.075
+            ],
+            "angle": 0,
+            "content": "44"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.237,
+                0.063,
+                0.359,
+                0.075
+            ],
+            "angle": 0,
+            "content": "INTRODUCTION"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.845,
+                0.059,
+                0.905,
+                0.073
+            ],
+            "angle": 0,
+            "content": "PART1"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.237,
+                0.091,
+                0.907,
+                0.166
+            ],
+            "angle": 0,
+            "content": "direction, first by temporarily reducing the tax rate on qualified dividends received by noncorporate shareholders and eventually making the rate reduction permanent and then by lowering the corporate income tax rate.[170]"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.171,
+                0.902,
+                0.533
+            ],
+            "angle": 0,
+            "content": "Although many developed countries have adopted an integration model to tax business income,[171] the conventional wisdom is that a fully integrated system in the United States is not a realistic option. A separate tax on corporations is a politically popular way to raise revenue. Proponents of the classic double tax system have argued that the concentration of economic power represented by the earnings of at least public companies is an appropriate object of a tax system that purports to be built on principles of fairness and ability to pay. Many closely held businesses are able to avoid the double tax by operating as partnerships, LLCs, or S corporations. Even if they do not qualify for pass-through treatment, well-advised closely held C corporations historically engaged in \"self-help\" integration techniques (such as payments of deductible compensation or interest) or took advantage of targeted tax breaks to avoid the sting of the corporate tax. Moreover, a large of amount of the taxable income of publicly traded corporations is only taxed once, at the corporate level, because of the significant concentration of stock held by tax-exempt pension funds and charitable endowments. Finally, transition from the current system to an integration model would present logistical challenges and years of complexity as the new rules are phased in."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.232,
+                0.542,
+                0.901,
+                0.78
+            ],
+            "angle": 0,
+            "content": "Despite these practical and political realities, proponents of integration continue to argue that the corporate income tax increases the cost of capital for U.S. corporations. It is said to be an indirect tax on shareholders rather than a cost of doing business that is passed on to consumers. So viewed, the tax violates notions of vertical equity (by uniformly taxing income earned indirectly by dissimilarly situated shareholders) and horizontal equity (because income earned through a C corporation is taxed more heavily than the same item of income earned through a proprietorship, S corporation or partnership).[172] Free-market economists contend that integration would encourage corporate earnings to be more freely distributed to shareholders, who then could decide whether to reinvest in the business instead of leaving that reinvestment decision to corporate managers."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.231,
+                0.784,
+                0.899,
+                0.844
+            ],
+            "angle": 0,
+            "content": "With corporate tax reform always seeming to be on the front burner in the tax policy conversation, it is worth pausing to consider how such a taxing regime that eliminates separate corporate and shareholder levels"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.867,
+                0.896,
+                0.901
+            ],
+            "angle": 0,
+            "content": "Bar Ass'n Tax Section, 1988); Graetz & Warren, \"Integration of Corporate and Individual Income Taxes: An Introduction,\" 84 Tax Notes 1767 (Sept. 27, 1999)."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.26,
+                0.898,
+                0.454,
+                0.912
+            ],
+            "angle": 0,
+            "content": "170 See Chapter 4A2, infra."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.229,
+                0.914,
+                0.898,
+                0.945
+            ],
+            "angle": 0,
+            "content": "171 Among the countries with fully or partially integrated business taxation regimes are Canada, Germany, France, Australia, Italy, and the United Kingdom."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.258,
+                0.945,
+                0.581,
+                0.96
+            ],
+            "angle": 0,
+            "content": "172 See Canellos, supra note 169, at 130-131."
+        }
+    ],
+    [
+        {
+            "type": "header",
+            "bbox": [
+                0.093,
+                0.06,
+                0.186,
+                0.073
+            ],
+            "angle": 0,
+            "content": "CHAPTER 1"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.354,
+                0.045,
+                0.763,
+                0.075
+            ],
+            "angle": 0,
+            "content": "AN OVERVIEW OF THE TAXATION OF CORPORATIONS AND SHAREHOLDERS"
+        },
+        {
+            "type": "page_number",
+            "bbox": [
+                0.851,
+                0.062,
+                0.872,
+                0.075
+            ],
+            "angle": 0,
+            "content": "45"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.094,
+                0.092,
+                0.766,
+                0.314
+            ],
+            "angle": 0,
+            "content": "of taxation might be implemented. The potential integration models fall into two broad categories. The first, referred to as \"full\" or \"complete\" integration, would eliminate the corporate income tax and apply a pass-through taxing system to C corporations and their shareholders. A leading alternative is \"partial\" integration, which typically contemplates different types of tax relief for dividends paid by a corporation. Variations include giving shareholders a tax credit equal to a percentage of dividends paid or allowing shareholders to exclude from gross income a portion of dividends received during the year. Alternatively, the corporation could be permitted to deduct some or all of the dividends it pays its shareholders. The excerpts below survey the major integration prototypes."
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.117,
+                0.336,
+                0.749,
+                0.377
+            ],
+            "angle": 0,
+            "content": "Joint Committee on Taxation, Present Law and Background Relating to Selected Business Tax Issues"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.312,
+                0.381,
+                0.555,
+                0.395
+            ],
+            "angle": 0,
+            "content": "(JCX-41-06), September 19, 2006."
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.099,
+                0.409,
+                0.428,
+                0.427
+            ],
+            "angle": 0,
+            "content": "IV. CORPORATE INTEGRATION"
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.099,
+                0.434,
+                0.36,
+                0.452
+            ],
+            "angle": 0,
+            "content": "A. Background and Issues"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.099,
+                0.457,
+                0.77,
+                0.863
+            ],
+            "angle": 0,
+            "content": "The present law structure of a separate entity level tax on corporate income has long been recognized to create a variety of economic distortions. The two levels of tax on corporate form income (entity and individual level), as compared to the single individual level tax imposed on pass-through entities (S-corps, partnerships, LLCs), create a bias against the corporate form of organization; this in turn limits investors' access to publicly traded equity investment, which may impose a particular burden to smaller investors who are less likely to have significant access to equity investments in pass-through entities. To the extent that the two levels of tax impose a higher level of tax on investment generally, the incentive to save is reduced. The resulting increase in the cost of capital needed to finance new investment will lead to lower capital formation, thereby reducing future output and productivity. An additional distortion resulting from the present law corporate income tax rules is the incentive to finance new investments from debt rather than equity on account of the deductibility of interest payments on debt but no comparable deduction for dividends paid on equity.[39] Over-reliance on debt financing can increase bankruptcy risk. Finally, there may be incentives created for the retention of earnings in the corporation, which may lead to distortions in the allocation of capital to the extent that corporations with current earnings have less favorable investment opportunities than would their shareholders.[40] In addition,"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.133,
+                0.896,
+                0.57,
+                0.911
+            ],
+            "angle": 0,
+            "content": "39 Some investors, however, may prefer equity to debt. \\*\\*\\*"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.101,
+                0.911,
+                0.774,
+                0.972
+            ],
+            "angle": 0,
+            "content": "40 The two-tier tax on dividend distributions can make it more desirable for a corporation to use retained earnings rather than new equity for its investments. Shareholders can find such earnings retention attractive (subject to the accumulated earnings tax and personal holding company rules \\*\\*\\*) if the shareholder expects to defer tax on capital gains for a substantial"
+        },
+        {
+            "type": "list",
+            "bbox": [
+                0.101,
+                0.896,
+                0.774,
+                0.972
+            ],
+            "angle": 0,
+            "content": null
+        }
+    ],
+    [
+        {
+            "type": "page_number",
+            "bbox": [
+                0.14,
+                0.067,
+                0.162,
+                0.079
+            ],
+            "angle": 0,
+            "content": "46"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.239,
+                0.066,
+                0.361,
+                0.078
+            ],
+            "angle": 0,
+            "content": "INTRODUCTION"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.847,
+                0.063,
+                0.907,
+                0.076
+            ],
+            "angle": 0,
+            "content": "PART1"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.238,
+                0.096,
+                0.907,
+                0.15
+            ],
+            "angle": 0,
+            "content": "present law results in considerable complexity and tax planning as taxpayers seek to structure the most tax-favorable form of doing business and providing returns to investors."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.156,
+                0.905,
+                0.557
+            ],
+            "angle": 0,
+            "content": "At the same time, proposals to eliminate separate corporate and shareholder levels of taxation (referred to as \"corporate integration\") involve significant policy decisions and can also produce considerable complexity. Under present law, although the Code provides rules for imposing separate tax at the corporate and at the shareholder level, this does not always result in actual payment of two levels of tax. In some cases, the amounts that are distributed to shareholders may have borne less than a full tax at the corporate level due to the operation of various deductions, deferrals, or other provisions that have reduced or eliminated corporate level tax. Also, in some cases, shareholders are tax-exempt, or the rate of tax the shareholder may pay is reduced due to capital gains treatment, the lower rates for dividends of individuals, the dividends received deduction for corporations, step-up in basis of stock at death, or other provisions. Thus, under present law, the combined individual and corporate tax rates on corporate earnings that are distributed to shareholders may not be as great as two full levels of tax, and may be less than a single full level of tax. If a decision were made to increase corporate integration, policy decisions would need to be made regarding those situations in which at least one level of tax should be collected and at which level (corporate or shareholder) it should be collected. Complexity would be involved in co-ordinating the tax results at the entity and individual levels."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.232,
+                0.564,
+                0.902,
+                0.788
+            ],
+            "angle": 0,
+            "content": "As one example, consider a corporation whose earnings are subject to little or no tax due to tax incentives or preferences for particular types of investment or business activities. Under present law, earnings of such a corporation distributed to taxable investors, or gains of such investors from retained earnings, may still be taxed to the investors at the \"second level\" of tax. In considering a form of corporate integration, decisions would have to be made whether to collect at least one full level of tax or whether to pass through the tax benefits to investors. If the latter decision is made, issues may still arise regarding the appropriate investors to receive the benefit and how to treat situations where shares have changed hands between the time of the tax benefited activities and the time of the distribution. Present law rules for partnerships contain"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.228,
+                0.825,
+                0.9,
+                0.852
+            ],
+            "angle": 0,
+            "content": "period or to hold stock until death (so that appreciation can be passed to his heirs free of individual income tax)."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.855,
+                0.9,
+                0.96
+            ],
+            "angle": 0,
+            "content": "There also may be an incentive under present law to retain earnings if the corporation's effective tax rate on reinvestment is lower than the shareholder tax rate on distributed earnings. By contrast, if the shareholder's tax rate is significantly lower than the corporation's effective tax rate—for example, if the shareholder is a tax-exempt entity or is entitled to a corporate dividends-received deduction or to the lower rates on dividends to individuals, or if the distribution can be structured as a stock buyback eligible for capital gains rates and basis recovery—there may be a tax incentive to distribute earnings or a reduced incentive to retain earnings."
+        }
+    ],
+    [
+        {
+            "type": "header",
+            "bbox": [
+                0.095,
+                0.058,
+                0.188,
+                0.074
+            ],
+            "angle": 0,
+            "content": "CHAPTER 1"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.355,
+                0.044,
+                0.767,
+                0.075
+            ],
+            "angle": 0,
+            "content": "AN OVERVIEW OF THE TAXATION OF CORPORATIONS AND SHAREHOLDERS"
+        },
+        {
+            "type": "page_number",
+            "bbox": [
+                0.853,
+                0.061,
+                0.875,
+                0.074
+            ],
+            "angle": 0,
+            "content": "47"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.092,
+                0.092,
+                0.766,
+                0.129
+            ],
+            "angle": 0,
+            "content": "elaborate rules that attempt to prevent the misallocation of certain tax benefits to partners."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.096,
+                0.134,
+                0.77,
+                0.41
+            ],
+            "angle": 0,
+            "content": "As another example, consider a corporation that conducts a business activity and that has tax-exempt shareholders. Under present law, the income from the business activity is taxed at the corporate level although the tax-exempt shareholders are not taxed on dividend income or capital gain from their investment. Under present law, the single-level-of-tax regimes do collect a business income tax from business activities, even when there are tax-exempt investors. Thus, if the tax-exempt corporate shareholders of C corporation conducting a business were instead equity owners of a partnership or of an S corporation that conducted the same business, they would be subject to unrelated business income tax on their share of partnership or S corporation income from such business, whether or not distributed. In considering a form of corporate integration, a decision would have to be made whether to continue the present law approach that the presence of tax-exempt equity investors does not exempt business income from tax.[41]"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.097,
+                0.415,
+                0.774,
+                0.563
+            ],
+            "angle": 0,
+            "content": "Foreign investment situations also present issues relating to the adoption and design of an integrated system. As one example, under present law, the U.S. collects a corporate level tax on U.S. corporate income and a withholding tax on dividend distributions to foreign shareholders.[42] Integration proposals that would unilaterally reduce the tax on dividends to foreign investors or provide refundable credits for any U.S. corporate tax paid could raise issues if foreign countries do not provide similar benefits to U.S investors."
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.1,
+                0.569,
+                0.368,
+                0.588
+            ],
+            "angle": 0,
+            "content": "B. Integration Approaches"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.099,
+                0.59,
+                0.772,
+                0.648
+            ],
+            "angle": 0,
+            "content": "A number of methods could be used to achieve full or partial integration, each of which has associated policy and administrative considerations.[43]"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.099,
+                0.65,
+                0.775,
+                0.765
+            ],
+            "angle": 0,
+            "content": "One form, known as \"full\" integration, involves passing through all items of corporate income and deduction to shareholders, including the pass-through of items of a publicly-traded corporation. This approach would tax investors currently on their share of corporate income even if such income is not distributed to them. Full integration is considered to involve administrative difficulties in determining a shareholder's"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.099,
+                0.807,
+                0.775,
+                0.894
+            ],
+            "angle": 0,
+            "content": "41 Because present law does not impose tax on interest payments to tax-exempt investors paid by partnerships or S corporations engaged in business activity, there is an incentive for tax-exempt investors to hold debt rather than equity of business conducted in such pass-through forms under present law. In considering approaches to integration, consideration may be given to whether to continue this type of difference in the treatment of debt and equity when imposing only a single level of tax."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.134,
+                0.895,
+                0.735,
+                0.907
+            ],
+            "angle": 0,
+            "content": "42 However, interest paid to foreign shareholders is generally not taxed by the U.S."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.102,
+                0.908,
+                0.776,
+                0.967
+            ],
+            "angle": 0,
+            "content": "43 For a more extensive discussion of the background and issues relating to integration, see Michael J. Graetz and Alvin C. Warren, Jr., Integration of the U.S. Corporate and Individual Income Taxes (Tax Analysts, 1998); Joint Committee on Taxation, Federal Income Tax Aspects of Corporate Financial Structures, JCS-1-89 (Jan. 18, 1989)."
+        },
+        {
+            "type": "list",
+            "bbox": [
+                0.099,
+                0.807,
+                0.776,
+                0.967
+            ],
+            "angle": 0,
+            "content": null
+        }
+    ],
+    [
+        {
+            "type": "page_number",
+            "bbox": [
+                0.137,
+                0.062,
+                0.159,
+                0.075
+            ],
+            "angle": 0,
+            "content": "48"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.236,
+                0.062,
+                0.359,
+                0.075
+            ],
+            "angle": 0,
+            "content": "INTRODUCTION"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.843,
+                0.058,
+                0.905,
+                0.073
+            ],
+            "angle": 0,
+            "content": "PART1"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.091,
+                0.905,
+                0.129
+            ],
+            "angle": 0,
+            "content": "appropriate share of income, especially when stock changes hands during a corporate taxable year."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.133,
+                0.905,
+                0.279
+            ],
+            "angle": 0,
+            "content": "Other forms of integration include reduction of the corporate tax on distributed or retained corporate earnings, or of the individual tax on distributed earnings or on capital gains attributable to undistributed earnings. Complexity can arise, however, if it is desired to design a system that will assure the collection of one level of tax, because of the necessity for mechanisms that assure that the amounts exempted at either the shareholder or corporate level in fact are taxed at the other level."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.285,
+                0.905,
+                0.52
+            ],
+            "angle": 0,
+            "content": "The principal approaches to integration usually discussed involve forms of dividend relief and thereby apply only to distributed earnings. One approach would give relief by allowing the corporation or shareholders to deduct or exclude a portion of dividends. Another approach provides a credit to shareholders for taxes paid by the corporation. In 1992, the Treasury Department published a report containing a prototype for a form of dividend relief through exclusion of previously taxed dividends from shareholder income.[44] In 1993, the American Law Institute published a proposal involving a credit system based on the model used by a number of other countries.[45] Other proposals relating to approaching a single level of tax on business income are discussed in the 2005 Report of the President's Advisory Panel on Tax Reform.[46]"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.23,
+                0.528,
+                0.902,
+                0.697
+            ],
+            "angle": 0,
+            "content": "In 2003, the President's budget proposals to the Congress contained a dividend relief proposal that attempted to provide relief to shareholders of corporations on dividends attributable to previously taxed income of the corporation and also to provide a basis adjustment in a shareholder's stock for undistributed previously taxed income allocated to such stock.[47] Subsequently, The Jobs Growth and Tax Relief Act of 2003, following a dividend relief approach, temporarily reduced and conformed (but did not eliminate) the tax rates on dividends and capital gains, through the end of 2008. The Tax Increase Prevention and Reconciliation Act of 2005"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.709,
+                0.897,
+                0.832
+            ],
+            "angle": 0,
+            "content": "44 U.S. Department of the Treasury, Integration of the Individual and Corporate Tax Systems, Taxing Business Income Once (1992). This study also considered alternative integration prototypes. One was a \"shareholder allocation\" prototype that would tax both distributed and retained earnings at the shareholder's tax rate. Another was a \"Comprehensive Business Income Tax\" prototype that would, in effect, extend a dividend exclusion system to payments of interest, and deny interest deductions, in order to equalize the treatment of debt and equity; and that would tax corporate and noncorporate businesses in the same manner. (See introduction to the study at p.15). This study and a general introduction on corporate integration can be found reprinted in Graetz and Warren, op.cit., supra."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.832,
+                0.897,
+                0.875
+            ],
+            "angle": 0,
+            "content": "45 Alvin C. Warren, Jr., Integration of Individual and Corporate Income Taxes (American Law Institute, 1993). This study and a general introduction on corporate integration can be found reprinted in Graetz and Warren, op.cit., supra."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.874,
+                0.897,
+                0.933
+            ],
+            "angle": 0,
+            "content": "46 The President's Advisory Panel on Tax Reform; Simple, Fair and Pro-Growth: Proposals to Fix American's Tax System (Nov. 2005), Chapters 7, 8 and 9 (discussing a proposal for a business tax reform while retaining some individual tax on investment returns, and also including discussions of value added and sales taxes as alternatives to an income tax)."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.932,
+                0.897,
+                0.958
+            ],
+            "angle": 0,
+            "content": "47 Department of the Treasury, General Explanations of the Administration's Fiscal Year 2004 Revenue Proposals, Feb. 2003."
+        },
+        {
+            "type": "list",
+            "bbox": [
+                0.226,
+                0.709,
+                0.897,
+                0.958
+            ],
+            "angle": 0,
+            "content": null
+        }
+    ],
+    [
+        {
+            "type": "header",
+            "bbox": [
+                0.095,
+                0.058,
+                0.188,
+                0.072
+            ],
+            "angle": 0,
+            "content": "CHAPTER 1"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.356,
+                0.043,
+                0.765,
+                0.074
+            ],
+            "angle": 0,
+            "content": "AN OVERVIEW OF THE TAXATION OF CORPORATIONS AND SHAREHOLDERS"
+        },
+        {
+            "type": "page_number",
+            "bbox": [
+                0.853,
+                0.06,
+                0.875,
+                0.073
+            ],
+            "angle": 0,
+            "content": "49"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.092,
+                0.091,
+                0.766,
+                0.146
+            ],
+            "angle": 0,
+            "content": "extended this rate structure though 2010 [and it later was extended again through 2012 and finally made permanent, with a 20 percent maximum rate, for tax years beginning in 2013. Ed.]."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.096,
+                0.152,
+                0.769,
+                0.336
+            ],
+            "angle": 0,
+            "content": "As noted previously, a determination whether to adopt a particular form of integration involves significant policy determinations. Among the policy decisions are whether to pass through any corporate business level tax benefits to individual investors; how to treat income attributable to tax-exempt investors; how to treat international transactions; and how to treat existing corporate equity investments. Some decisions may be more easily implemented if the basic form of relief is structured as a dividend exclusion at either the corporate or shareholder level. Other issues may be more readily addressed by giving shareholders a credit for their share of the corporate tax when they receive dividends."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.097,
+                0.34,
+                0.772,
+                0.543
+            ],
+            "angle": 0,
+            "content": "In addition, a system imposing only one level of tax would not necessarily be simpler than present law. For example, the rules for taxing income of partnerships (which is subject to tax only at the partner level) are quite complex. Similarly, those integration approaches that provide dividend relief and that also seek to collect at least one level of tax can involve complexity. This can result from the need to provide rules that track whether income has borne one level of tax when earned at the corporate entity level (or instead has enjoyed tax benefits that reduce or eliminate the corporate level tax), and whether the particular type of shareholder to which the income is distributed would otherwise generally pay tax on the distribution, absent integration relief."
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.101,
+                0.564,
+                0.166,
+                0.581
+            ],
+            "angle": 0,
+            "content": "NOTE"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.099,
+                0.587,
+                0.774,
+                0.819
+            ],
+            "angle": 0,
+            "content": "After a flurry of activity in the early and mid-1990s, the integration debate went back into hibernation. Historically, the business community has not warmly embraced the concept of integration, preferring instead to work within the existing system with its many opportunities to minimize the corporate income tax. Most corporate lobbyists focus their attention on expanding business tax preferences (such as expensing the cost of depreciable property, research and development incentives, and targeted tax credits). In the 2017 Act, their efforts to repeal the corporate alternative minimum tax were successful. Some commentators have suggested that corporate managers view integration as a threat to their power base because it would force them to act more as stewards of shareholder interests.[173] It seemed more and more likely that integration would remain a topic for occasional academic discourse rather than a viable political reality."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.099,
+                0.82,
+                0.777,
+                0.914
+            ],
+            "angle": 0,
+            "content": "President George W. Bush revived the debate in early 2003 with economic stimulus legislation that included a bold proposal for a 100 percent exclusion for all dividends paid out of income previously taxed at the corporate level. President Bush's dividend exclusion proposal received a mixed response from Congress and the business community. Opponents"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.1,
+                0.93,
+                0.776,
+                0.968
+            ],
+            "angle": 0,
+            "content": "173 See, e.g., Arlen & Weiss, “A Political Theory of Corporate Taxation,” 105 Yale L. J. 325 (1995)."
+        }
+    ],
+    [
+        {
+            "type": "page_number",
+            "bbox": [
+                0.137,
+                0.062,
+                0.157,
+                0.075
+            ],
+            "angle": 0,
+            "content": "50"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.236,
+                0.062,
+                0.359,
+                0.075
+            ],
+            "angle": 0,
+            "content": "INTRODUCTION"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.844,
+                0.059,
+                0.905,
+                0.073
+            ],
+            "angle": 0,
+            "content": "PART1"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.091,
+                0.905,
+                0.233
+            ],
+            "angle": 0,
+            "content": "argued that it was too complex, favored the wealthy without providing any immediate economic stimulus, and contributed to the federal budget deficit. Tax-privileged sectors, such as issuers of municipal bonds, banks, insurance companies, and real estate investment trusts, were concerned that their existing tax preferences would be undermined. Tax-exempt shareholders, such as pension funds and charitable foundations, as well as companies that were losing money or able to shelter their income from the corporate income tax, had little to gain from the proposal."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.238,
+                0.905,
+                0.378
+            ],
+            "angle": 0,
+            "content": "Supporters argued that eliminating the double tax on corporate earnings was a long overdue correction to a flawed system that encouraged excessive corporate debt, discouraged the payment of dividends and, in so doing, contributed to a misallocation of capital by favoring retained earnings over cash payouts. Some proponents predicted that a full dividend exclusion would make corporate managers more accountable to shareholders and increase shareholder confidence in the credibility of corporate earnings reports."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.384,
+                0.905,
+                0.578
+            ],
+            "angle": 0,
+            "content": "It eventually became clear that the dividend exclusion proposal would not be enacted because of its complexity and revenue effect. The ultimate compromise—taxing qualified dividends at the same preferential rates as most long-term capital gains—was a small step toward integrating the corporate and individual income taxes. Notably, dividends qualify for the reduced rate whether or not they are paid out of income previously taxed at the corporate level. Some of the details are discussed in Chapter 4. These reduced rates were scheduled to expire at the end of 2012 but, to avert a plunge over what then was called \"the fiscal cliff,\" Congress agreed to a compromise that made the preferred treatment of dividends permanent, albeit at a slightly higher maximum rate of 20 percent.[174]"
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.232,
+                0.59,
+                0.743,
+                0.614
+            ],
+            "angle": 0,
+            "content": "3. OTHER CORPORATE TAX REFORM OPTIONS"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.231,
+                0.621,
+                0.901,
+                0.825
+            ],
+            "angle": 0,
+            "content": "Even though corporate integration is the norm in many developed countries and enjoys wide support from academics, adoption of any of the integration models in the United States would be a radical step that is unlikely to be taken during the remaining life expectancy of the current co-authors of this text. But a more traditional approach to corporate tax reform always was within the realm of possibility. In the years prior to the passage of the 2017 Act, three broad avenues for reform enjoyed bipartisan support: (1) lowering the statutory corporate rates to make U.S. companies more competitive in the global economy; (2) broadening the tax base; and (3) changing and simplifying the rules on how U.S. companies with foreign active business income are taxed.[175]"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.229,
+                0.828,
+                0.901,
+                0.892
+            ],
+            "angle": 0,
+            "content": "The conventional wisdom was that any corporate tax reform option that lowers rates without increasing the deficit must eliminate enough corporate tax breaks to make the package revenue-neutral. Examples of"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.912,
+                0.897,
+                0.946
+            ],
+            "angle": 0,
+            "content": "174 For high income taxpayers, the rate on long-term capital gains is actually 23.8 percent because of the impact of the net investment income tax imposed by Section 1411."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.258,
+                0.945,
+                0.894,
+                0.966
+            ],
+            "angle": 0,
+            "content": "176 For an entire book on this topic, see Shaviro, Decoding the U.S. Corporate Tax (2009)."
+        }
+    ],
+    [
+        {
+            "type": "header",
+            "bbox": [
+                0.094,
+                0.062,
+                0.188,
+                0.075
+            ],
+            "angle": 0,
+            "content": "CHAPTER 1"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.354,
+                0.048,
+                0.765,
+                0.062
+            ],
+            "angle": 0,
+            "content": "AN OVERVIEW OF THE TAXATION OF CORPORATIONS"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.598,
+                0.064,
+                0.765,
+                0.077
+            ],
+            "angle": 0,
+            "content": "AND SHAREHOLDERS"
+        },
+        {
+            "type": "page_number",
+            "bbox": [
+                0.851,
+                0.064,
+                0.872,
+                0.076
+            ],
+            "angle": 0,
+            "content": "51"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.092,
+                0.095,
+                0.769,
+                0.408
+            ],
+            "angle": 0,
+            "content": "popular \"tax expenditures\" that would need to be curtailed were accelerated depreciation for plant and equipment, tax credits for research, taxpayer-friendly provisions benefitting the oil and gas industry and many more. The National Commission on Fiscal Responsibility and Reform, a Presidentially-appointed bipartisan panel chaired by Allen Simpson and Erskine Bowles, issued a report in 2010 outlining a blueprint for rate reduction coupled with base broadening and simplification.[176] The Commission recommended replacing the current corporate tax rate structure with a single rate between 23 and 29 percent and eliminating all \"special subsidies\" for businesses. Among the most prominent \"tax expenditures\" targeted for repeal were accelerated cost recovery methods, various tax benefits for the oil and gas industry, the deduction for domestic production activities, numerous business tax credits, and last in-first out inventory accounting.[177] Many of the Commission's recommendations were widely praised by neutral commentators, but the Simpson/Bowles blueprint faded quickly when it failed to gain traction on either end of Pennsylvania Avenue."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.098,
+                0.412,
+                0.772,
+                0.837
+            ],
+            "angle": 0,
+            "content": "During this extended conversation, it became clear that there was support for lowering corporate tax rates but disagreement on the details and trade-offs. Although most Republican legislators agreed that the statutory corporate tax rates should be reduced to stimulate economic growth, they disagreed about which corporate tax breaks should be eliminated and whether the legislation must be revenue neutral. For most of his two terms in office, President Obama agreed that corporate income tax rates should be reduced in exchange for a broader base, but he also promoted use of the tax system to stimulate certain types of economic activity, such as clean energy, research, education and jobs. As in the debate over integration, the business community has been divided. Some sectors would welcome a corporate tax rate reduction even if it means fewer deductions and credits. Others, especially businesses that can reduce their effective tax rates by using targeted tax breaks, were less enthusiastic. Owners of businesses operating as pass-through entities (such as partnerships, LLCs and S corporations) expressed concern that they would not benefit from a lower corporate income tax rate and might lose valuable tax breaks if the base is broadened. Further complicating the task was the treatment of U.S. multinational corporations—a critical piece in the corporate tax reform puzzle. Any overhaul of the current system required lawmakers to confront the complex issue of how and when multinational corporations are taxed on the active business income they earn abroad."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.099,
+                0.839,
+                0.774,
+                0.898
+            ],
+            "angle": 0,
+            "content": "In 2012, the Treasury Department issued a \"framework\" for business tax reform. It proposed to reduce the corporate rate to 28 percent, eliminate some tax expenditures while adding others, and strengthen the"
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.133,
+                0.939,
+                0.233,
+                0.953
+            ],
+            "angle": 0,
+            "content": "176 Id.at 28."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.135,
+                0.956,
+                0.233,
+                0.969
+            ],
+            "angle": 0,
+            "content": "177 Id.at 29."
+        }
+    ],
+    [
+        {
+            "type": "page_number",
+            "bbox": [
+                0.137,
+                0.069,
+                0.159,
+                0.08
+            ],
+            "angle": 0,
+            "content": "52"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.237,
+                0.069,
+                0.359,
+                0.08
+            ],
+            "angle": 0,
+            "content": "INTRODUCTION"
+        },
+        {
+            "type": "header",
+            "bbox": [
+                0.845,
+                0.066,
+                0.905,
+                0.079
+            ],
+            "angle": 0,
+            "content": "PART1"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.235,
+                0.098,
+                0.904,
+                0.427
+            ],
+            "angle": 0,
+            "content": "international tax system, all while \"not adding a dime to the deficit.\"178 It was followed in 2013 by a provocative discussion draft of small business tax proposals and, a year later, by comprehensive tax reform legislation from then House Ways and Means Committee chair Dave Camp. The Camp reform bill included repeal of many business-related exclusions, deductions and credits; repeal of the alternative minimum tax; reduction of corporate tax rates; and a long list of micro and macro changes to the tax treatment of pass-through entities.179 The Senate Finance Committee also was hard at work, first preparing an option paper on taxation of business income and entities180 and later issuing a Business Income Tax Bipartisan Working Group Report.181 The Working Group agreed on several familiar principles to drive business tax reform: (1) lowering tax rates to encourage economic growth and job creation and to create an internationally competitive tax code; (2) addressing structural biases (e.g., debt financing over equity); (3) promoting innovation (e.g., through a permanent research and development tax credit and source neutral incentives for energy production); and (4) simplifying the system."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.232,
+                0.433,
+                0.901,
+                0.67
+            ],
+            "angle": 0,
+            "content": "Although the leaders of the congressional taxwriting committees continued to express optimism that corporate tax reform was just around the corner, it became clear that prospects for serious legislation were slim to none until after the 2016 election. And then, at last, proving that elections have consequences, the Republican-controlled Congress narrowly passed the Tax Cuts and Jobs Act. The 2017 Act did not include any of the ambitious corporate integration approaches. Instead, Congress took a more conventional route by reducing the corporate income tax rate but without the base broadening necessary to make the overall legislation revenue neutral unless, as proponents of the Act have promised, the stimulus provided by the lower rates and other incentives lead to a sustained period of economic growth, more jobs, and enough future revenue to balance the budget."
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.231,
+                0.675,
+                0.9,
+                0.75
+            ],
+            "angle": 0,
+            "content": "Many of the pro-business provisions of the 2017 Act are temporary and even the \"permanent\" corporate tax rate reduction may be vulnerable if the balance of political power should change. So, as we always say in every new edition, stay tuned."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.794,
+                0.897,
+                0.825
+            ],
+            "angle": 0,
+            "content": "178 The President's Framework of Business Tax Reform: A Joint Report by the White House and the Department of the Treasury (Feb. 2012)."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.825,
+                0.898,
+                0.883
+            ],
+            "angle": 0,
+            "content": "179 See Joint Committee on Taxation, Technical Explanation of the Tax Reform Act of 2014, A Discussion Draft of the Chairman of the House Committee on Ways and Means to Reform the Internal Revenue Code: Title III—Business Tax Reform (JCX-14-14) Feb. 26, 2014, available at https://www.jct.gov/publications.html?func=started&id=4556."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.882,
+                0.898,
+                0.933
+            ],
+            "angle": 0,
+            "content": "180 See Types of Income and Business Entities, Senate Finance Committee Reform Options for Discussion (June 6, 2013), available at https://www.finance.senate.gov/imo/media/doc/06062013%20Tax%20Reform%20Options%20Paper_Types%20of%20Income%20and%20Business%20Entities.pdf."
+        },
+        {
+            "type": "page_footnote",
+            "bbox": [
+                0.226,
+                0.935,
+                0.897,
+                0.965
+            ],
+            "angle": 0,
+            "content": "181 The report is available at http://www.finance.senate.gov/newsroom/chairman/release/?id=e9eefc66-7e11-4276-939f-3eca6fd6d959."
+        },
+        {
+            "type": "list",
+            "bbox": [
+                0.226,
+                0.794,
+                0.898,
+                0.965
+            ],
+            "angle": 0,
+            "content": null
+        }
+    ],
+    [
+        {
+            "type": "title",
+            "bbox": [
+                0.095,
+                0.082,
+                0.28,
+                0.107
+            ],
+            "angle": 0,
+            "content": "PART TWO"
+        },
+        {
+            "type": "title",
+            "bbox": [
+                0.097,
+                0.164,
+                0.525,
+                0.254
+            ],
+            "angle": 0,
+            "content": "TAXATION OF C CORPORATIONS"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.097,
+                0.272,
+                0.509,
+                0.293
+            ],
+            "angle": 0,
+            "content": "CHAPTER 2 Formation of a Corporation"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.099,
+                0.296,
+                0.417,
+                0.316
+            ],
+            "angle": 0,
+            "content": "CHAPTER 3 Capital Structure"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.1,
+                0.32,
+                0.522,
+                0.34
+            ],
+            "angle": 0,
+            "content": "CHAPTER 4 Nonliquidating Distributions"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.1,
+                0.344,
+                0.606,
+                0.363
+            ],
+            "angle": 0,
+            "content": "CHAPTER 5 Redemptions and Partial Liquidations"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.368,
+                0.612,
+                0.385
+            ],
+            "angle": 0,
+            "content": "CHAPTER 6 Stock Dividends and Section 306 Stock"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.392,
+                0.465,
+                0.41
+            ],
+            "angle": 0,
+            "content": "CHAPTER 7 Complete Liquidations"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.416,
+                0.545,
+                0.435
+            ],
+            "angle": 0,
+            "content": "CHAPTER 8 Taxable Corporate Acquisitions"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.44,
+                0.513,
+                0.458
+            ],
+            "angle": 0,
+            "content": "CHAPTER 9 Acquisitive Reorganizations"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.464,
+                0.439,
+                0.482
+            ],
+            "angle": 0,
+            "content": "CHAPTER 10 Corporate Divisions"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.487,
+                0.667,
+                0.505
+            ],
+            "angle": 0,
+            "content": "CHAPTER 11 Nonacquisitive, Nondivisive Reorganizations"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.511,
+                0.619,
+                0.53
+            ],
+            "angle": 0,
+            "content": "CHAPTER 12 Carryovers of Corporate Tax Attributes"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.535,
+                0.47,
+                0.554
+            ],
+            "angle": 0,
+            "content": "CHAPTER 13 Affiliated Corporations"
+        },
+        {
+            "type": "text",
+            "bbox": [
+                0.101,
+                0.559,
+                0.456,
+                0.577
+            ],
+            "angle": 0,
+            "content": "CHAPTER 14 Anti-Avoidance Rules"
+        },
+        {
+            "type": "page_number",
+            "bbox": [
+                0.889,
+                0.965,
+                0.91,
+                0.979
+            ],
+            "angle": 0,
+            "content": "53"
+        }
+    ],
+    [
+        {
+            "type": "image",
+            "bbox": [
+                0.033,
+                0.0,
+                0.961,
+                0.999
+            ],
+            "angle": 0,
+            "content": null
+        }
+    ]
+]
