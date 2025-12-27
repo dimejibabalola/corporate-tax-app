@@ -205,7 +205,7 @@ function findSectionForPage(pageIdx: number, sections: ParsedSection[]): ParsedS
 // MAIN IMPORT FUNCTION
 // ============================================================================
 
-const IMPORT_VERSION = 12; // v12: Supabase-first loading
+const IMPORT_VERSION = 13; // v13: New MinerU output for Chapter 1 with proper footnotes
 
 /**
  * Import textbook data - tries Supabase first, then local MinerU JSON
