@@ -192,6 +192,43 @@
     @apply font-semibold text-blue-600 dark:text-blue-400 mr-1;
   }
 
+  /* Clickable footnote references in text */
+  .footnote-ref {
+    @apply cursor-pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .footnote-ref sup {
+    @apply transition-all duration-150;
+  }
+
+  .footnote-ref:hover sup,
+  .footnote-ref:active sup {
+    @apply bg-blue-100 dark:bg-blue-800/50 scale-110;
+  }
+
+  /* Footnote highlight animation when scrolled to */
+  .footnote-highlight {
+    @apply bg-yellow-100 dark:bg-yellow-900/40;
+    animation: footnote-pulse 2.5s ease-out;
+  }
+
+  @keyframes footnote-pulse {
+    0% { background-color: rgb(254 249 195); }
+    50% { background-color: rgb(254 240 138); }
+    100% { background-color: transparent; }
+  }
+
+  .dark .footnote-highlight {
+    animation: footnote-pulse-dark 2.5s ease-out;
+  }
+
+  @keyframes footnote-pulse-dark {
+    0% { background-color: rgba(161, 98, 7, 0.4); }
+    50% { background-color: rgba(161, 98, 7, 0.5); }
+    100% { background-color: transparent; }
+  }
+
   .ruling-ref {
     @apply text-amber-600 dark:text-amber-400 font-medium;
   }

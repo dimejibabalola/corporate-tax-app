@@ -100,40 +100,51 @@ function splitFootnotes(text: string): { number: number; text: string }[] {
 
 /**
  * Convert inline footnote reference numbers to clickable superscript links.
- * Detects patterns like superscript numbers or numbers preceded by certain patterns.
  * 
- * Matches:
- * - Standalone superscript-like numbers at word boundaries (e.g., "text1" → "text<sup>1</sup>")
- * - Numbers following punctuation that look like footnote refs (e.g., "sentence.3" → "sentence.<sup>3</sup>")
+ * In legal/academic texts, footnote markers appear as numbers directly after
+ * words or punctuation (e.g., "partners7" or "interest.8").
+ * 
+ * Pattern matches: letter/punctuation followed by 1-3 digit number, then space/punctuation
+ * Excludes: § references, Section references, dates, standalone numbers
  */
 function renderTextWithFootnoteLinks(text: string, chapterNum: number): React.ReactNode[] {
-    // Pattern to match footnote reference numbers
-    // Looks for numbers 1-200 that appear after text (word boundary or punctuation)
-    // but NOT numbers that are part of citations like "§ 351" or dates
-    const footnoteRefPattern = /(\S)(\d{1,3})(?=[\s.,;:)\]"]|$)/g;
+    // Match footnote patterns: word/punct + number + space/punct
+    // e.g., "partners7 " or "interest.8 " or "twice.10"
+    // Captures: (preceding char)(number)
+    const footnoteRefPattern = /([a-zA-Z.,;:!?)\]"])(\d{1,3})(?=\s|[.,;:!?)\]"]|$)/g;
     
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     let key = 0;
     
-    // Reset lastIndex for exec
     footnoteRefPattern.lastIndex = 0;
     
     while ((match = footnoteRefPattern.exec(text)) !== null) {
         const num = parseInt(match[2]);
         const precedingChar = match[1];
         
-        // Skip if the number is too large (probably not a footnote)
-        // or if it's preceded by § or Section (it's a statute ref)
-        // or if it's preceded by a digit (it's part of a larger number)
-        if (num > 200 || /[\d§]/.test(precedingChar)) {
+        // Skip numbers that are too large or too small
+        if (num < 1 || num > 200) {
             continue;
         }
         
-        // Skip common non-footnote patterns
-        const beforeContext = text.slice(Math.max(0, match.index - 10), match.index + 1);
-        if (/§\s*$/.test(beforeContext) || /Section\s*$/i.test(beforeContext) || /\d$/.test(beforeContext)) {
+        // Get context before the match to check for exclusion patterns
+        const contextStart = Math.max(0, match.index - 15);
+        const beforeContext = text.slice(contextStart, match.index + 1);
+        
+        // Skip if this looks like a statute reference (§ 351, Section 243, etc.)
+        if (/§\s*\d*$/.test(beforeContext) || /Section\s+\d*$/i.test(beforeContext)) {
+            continue;
+        }
+        
+        // Skip if preceded by "I.R.C." or "Reg." - these are code/reg references
+        if (/I\.R\.C\.\s*[§$]?\s*\d*$/.test(beforeContext) || /Reg\.\s*[§$]?\s*\d*$/.test(beforeContext)) {
+            continue;
+        }
+        
+        // Skip year-like numbers (1900-2099)
+        if (num >= 1900 && num <= 2099) {
             continue;
         }
         
@@ -142,27 +153,31 @@ function renderTextWithFootnoteLinks(text: string, chapterNum: number): React.Re
             parts.push(text.slice(lastIndex, match.index + 1));
         }
         
-        // Add the clickable footnote reference
+        // Create clickable footnote reference with better mobile styling
+        const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const target = document.getElementById(`fn-${chapterNum}-${num}`);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Highlight animation
+                target.classList.add('footnote-highlight');
+                setTimeout(() => target.classList.remove('footnote-highlight'), 2500);
+            }
+        };
+        
         parts.push(
             <a
                 key={key++}
                 href={`#fn-${chapterNum}-${num}`}
-                className="footnote-ref text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 no-underline"
-                title={`Go to footnote ${num}`}
-                onClick={(e) => {
-                    e.preventDefault();
-                    const target = document.getElementById(`fn-${chapterNum}-${num}`);
-                    if (target) {
-                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        // Briefly highlight the footnote
-                        target.classList.add('bg-yellow-100', 'dark:bg-yellow-900/30');
-                        setTimeout(() => {
-                            target.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/30');
-                        }, 2000);
-                    }
-                }}
+                className="footnote-ref inline-flex items-baseline cursor-pointer touch-manipulation"
+                aria-label={`Go to footnote ${num}`}
+                onClick={handleClick}
+                onTouchEnd={handleClick}
             >
-                <sup className="font-medium">{num}</sup>
+                <sup className="text-[0.65em] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-0.5 rounded -top-1 relative select-none">
+                    {num}
+                </sup>
             </a>
         );
         
