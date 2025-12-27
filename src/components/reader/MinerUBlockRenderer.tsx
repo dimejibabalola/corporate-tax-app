@@ -15,7 +15,7 @@ import katex from 'katex';
 // ============================================================================
 
 export interface MinerUBlock {
-    type: 'text' | 'title' | 'table' | 'image' | 'equation' | 'list' | 'code' | 'page_footnote' | 'discarded';
+    type: 'text' | 'title' | 'table' | 'image' | 'equation' | 'list' | 'code' | 'page_footnote' | 'discarded' | 'header' | 'page_number';
     text?: string;
     text_level?: number;  // 0=body, 1+=heading
     bbox?: [number, number, number, number];  // [x0, y0, x1, y1]
@@ -33,6 +33,10 @@ export interface MinerUBlock {
 
     // Equation-specific (LaTeX)
     text_format?: string;
+    
+    // List-specific (new MinerU format)
+    sub_type?: string;
+    list_items?: string[];
 }
 
 // ============================================================================
@@ -341,18 +345,29 @@ export function MinerUBlockRenderer({ block, chapterNum = 1 }: BlockProps) {
         }
 
         case 'list': {
-            // Split text into list items
-            const items = block.text?.split('\n').filter(Boolean) || [];
-            const isOrdered = /^\d+\./.test(items[0] || '');
+            // Use list_items array if available, otherwise split text
+            const items = block.list_items || block.text?.split('\n').filter(Boolean) || [];
+            const isOrdered = /^\d+\./.test(items[0] || '') || /^\[\d+\]/.test(items[0] || '');
 
             const ListTag = isOrdered ? 'ol' : 'ul';
             return (
                 <ListTag className="my-4 pl-6 space-y-1 text-stone-700 dark:text-stone-300">
                     {items.map((item, i) => (
-                        <li key={i}>{item.replace(/^[\d]+\.\s*|^[-•]\s*/, '')}</li>
+                        <li key={i}>{item.replace(/^[\d]+\.\s*|^[-•]\s*|^\[\d+\]\s*/, '')}</li>
                     ))}
                 </ListTag>
             );
+        }
+        
+        case 'header': {
+            // Running headers at top of page - render subtly or skip
+            // These are typically "INTRODUCTION" or "CHAPTER 1" type headers
+            return null; // Skip running headers - they add noise
+        }
+        
+        case 'page_number': {
+            // Page numbers - skip rendering
+            return null;
         }
 
         case 'code': {

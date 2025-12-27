@@ -135,43 +135,45 @@ export async function loadMinerUChapter(
 
         console.log(`[MinerU] Loaded ${minerUBlocks.length} blocks for Chapter ${chapterNum}`);
 
-        // Load footnotes from middle.json (primary source - properly extracted)
-        const footnotes = await loadFootnotesFromMiddleJson(chapterNum, basePath);
+        // Check if content_list.json already has page_footnote types (new MinerU format)
+        const existingFootnotes = minerUBlocks.filter(b => b.type === 'page_footnote');
         
-        // Create a Set of footnote numbers we already have from middle.json
-        const existingFootnoteNums = new Set<number>();
-        for (const fn of footnotes) {
-            const match = fn.text?.match(/^(\d{1,3})\s/);
-            if (match) {
-                existingFootnoteNums.add(parseInt(match[1]));
-            }
-        }
+        let allBlocks: MinerUBlock[];
         
-        console.log(`[MinerU] Loaded ${footnotes.length} footnotes from middle.json (nums: ${[...existingFootnoteNums].slice(0, 10).join(', ')}...)`);
+        if (existingFootnotes.length > 0) {
+            // New format: footnotes already in content_list.json
+            console.log(`[MinerU] Found ${existingFootnotes.length} footnotes in content_list.json (new format)`);
+            
+            // Filter out discarded blocks and page_number blocks
+            allBlocks = minerUBlocks.filter(block => {
+                if (block.type === 'discarded') return false;
+                if (block.type === 'page_number') return false;
+                return true;
+            });
+        } else {
+            // Old format: need to load footnotes from middle.json
+            console.log(`[MinerU] No footnotes in content_list.json, loading from middle.json`);
+            
+            const footnotes = await loadFootnotesFromMiddleJson(chapterNum, basePath);
+            console.log(`[MinerU] Loaded ${footnotes.length} footnotes from middle.json`);
 
-        // Filter out "discarded" blocks from content_list.json that are duplicate footnotes
-        // and don't convert text blocks to footnotes (middle.json has the canonical source)
-        const filteredBlocks = minerUBlocks.filter(block => {
-            // Skip discarded blocks that look like footnotes (they're duplicates from content_list.json)
-            if (block.type === 'discarded') {
-                const text = block.text?.trim() || '';
-                const match = text.match(/^(\d{1,3})\s/);
-                if (match) {
-                    const num = parseInt(match[1]);
-                    // Skip if it looks like a footnote number in range
-                    if (num >= 1 && num <= 200) {
-                        return false; // Filter out - we have this from middle.json
+            // Filter out "discarded" blocks that look like footnotes (duplicates)
+            const filteredBlocks = minerUBlocks.filter(block => {
+                if (block.type === 'discarded') {
+                    const text = block.text?.trim() || '';
+                    const match = text.match(/^(\d{1,3})\s/);
+                    if (match) {
+                        const num = parseInt(match[1]);
+                        if (num >= 1 && num <= 200) {
+                            return false;
+                        }
                     }
                 }
-            }
-            return true;
-        });
-        
-        console.log(`[MinerU] Filtered ${minerUBlocks.length - filteredBlocks.length} duplicate discarded blocks`);
-
-        // Combine content blocks + footnotes
-        // Footnotes will be sorted by number before being grouped by page
-        const allBlocks = [...filteredBlocks, ...footnotes];
+                return true;
+            });
+            
+            allBlocks = [...filteredBlocks, ...footnotes];
+        }
 
         // Convert MinerU blocks to our ContentBlock format
         const blocks: ContentBlock[] = [];
