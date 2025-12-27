@@ -221,7 +221,7 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
         
         if (storedVersion !== IMPORT_VERSION && existingPages > 0) {
             console.log(`[Import] Version mismatch: stored=${storedVersion}, current=${IMPORT_VERSION}. Clearing old data...`);
-            await clearAllImportedData();
+            await clearImportedTextbook();
         } else if (existingPages > 0) {
             console.log('[Import] Data already exists with current version, skipping import');
             return {
