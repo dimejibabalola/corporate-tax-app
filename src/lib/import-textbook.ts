@@ -205,17 +205,25 @@ function findSectionForPage(pageIdx: number, sections: ParsedSection[]): ParsedS
 // MAIN IMPORT FUNCTION
 // ============================================================================
 
-const IMPORT_VERSION = 13; // v13: New MinerU output for Chapter 1 with proper footnotes
+// Build-time import version - changes with every build to force fresh data
+// Uses build timestamp to ensure uniqueness
+const BUILD_TIMESTAMP = import.meta.env.VITE_BUILD_TIME || Date.now().toString();
+const IMPORT_VERSION = `build-${BUILD_TIMESTAMP}`;
 
 /**
  * Import textbook data - tries Supabase first, then local MinerU JSON
  */
 export async function importTextbookFromJSON(): Promise<ImportResult> {
     try {
-        // Check if already imported
+        // Check version - if different from stored version, clear and re-import
+        const storedVersion = localStorage.getItem('mineruImportVersion');
         const existingPages = await db.textbookPages.count();
-        if (existingPages > 0) {
-            console.log('[Import] Data already exists, skipping import');
+        
+        if (storedVersion !== IMPORT_VERSION && existingPages > 0) {
+            console.log(`[Import] Version mismatch: stored=${storedVersion}, current=${IMPORT_VERSION}. Clearing old data...`);
+            await clearAllImportedData();
+        } else if (existingPages > 0) {
+            console.log('[Import] Data already exists with current version, skipping import');
             return {
                 success: true,
                 pagesCount: existingPages,
