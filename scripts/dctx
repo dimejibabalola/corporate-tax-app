@@ -1,0 +1,480 @@
+#!/bin/bash
+# dctx - Dimeji's Context-Driven Development CLI
+# Persistent context that any AI can read
+
+DCTX_DIR=".dctx"
+VERSION="1.0.0"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+show_help() {
+    echo -e "${BLUE}dctx${NC} - Context-Driven Development CLI v${VERSION}"
+    echo ""
+    echo "Usage: dctx <command> [args]"
+    echo ""
+    echo "Commands:"
+    echo "  init              Initialize dctx in current project"
+    echo "  status            Show current context and active track"
+    echo "  track <name>      Create new track (feature/bug/task)"
+    echo "  plan              Edit current track's plan"
+    echo "  spec              Edit current track's spec"
+    echo "  done              Mark current track complete, archive it"
+    echo "  list              List all tracks"
+    echo "  switch <id>       Switch to different track"
+    echo "  context           Open main context file for editing"
+    echo "  stack             Open tech stack file for editing"
+    echo "  routes            Open model routing rules"
+    echo "  prompt            Generate AI prompt with full context"
+    echo ""
+    echo "Quick commands:"
+    echo "  dctx prompt | pbcopy    Copy full context to clipboard"
+    echo "  dctx status             See where you left off"
+}
+
+init_project() {
+    if [ -d "$DCTX_DIR" ]; then
+        echo -e "${YELLOW}Project already initialized${NC}"
+        return
+    fi
+    
+    mkdir -p "$DCTX_DIR/tracks"
+    
+    # Create product context
+    cat > "$DCTX_DIR/product.md" << 'EOF'
+# Product Context
+
+## What is this?
+<!-- Describe your project in 2-3 sentences -->
+
+## Core Features
+<!-- List main features -->
+
+## Current State
+<!-- What's built vs what's planned -->
+
+## User Flow
+<!-- How users interact with this -->
+EOF
+
+    # Create tech stack with Dimeji's setup
+    cat > "$DCTX_DIR/tech-stack.md" << 'EOF'
+# Tech Stack & Environment
+
+## Models
+- **Planning/Architecture**: Gemini 3 Pro (via Gemini CLI + Conductor or Antigravity)
+- **Fast Coding**: MiniMax M2.1 (via OpenRouter or direct API)
+- **Vision/UI Analysis**: Qwen2.5-VL or MiniCPM-V 4.5 (via OpenRouter)
+
+## Model Routing Rules
+- If task involves images/screenshots/UI → route to vision model
+- If task is quick code generation/refactor → route to M2.1
+- If task is architecture/planning/complex reasoning → route to Gemini 3 Pro
+- If task involves PDF parsing → use MinerU (see below)
+
+## API Keys (stored in .env)
+- MINIMAX_API_KEY - for M2.1 direct access
+- OPENROUTER_API_KEY - for model routing
+- GEMINI_API_KEY - for Gemini CLI
+- Never ask about API key setup - already configured
+
+## PDF Parsing (MinerU)
+- Using MinerU 2.5 for PDF extraction
+- GPU inference via HuggingFace Space (20 page chunks)
+- Local API: `mineru-api --host 0.0.0.0 --port 8000`
+- Endpoint: POST http://localhost:8000/file_parse
+- Output: markdown + content_list.json with tables, equations, footnotes
+
+## Development Environment
+- IDE: Google Antigravity
+- CLI: Gemini CLI with Conductor extension
+- Package manager: uv for Python, npm for Node
+
+## Code Style
+<!-- Add your preferences -->
+- 
+EOF
+
+    # Create routing rules
+    cat > "$DCTX_DIR/routes.md" << 'EOF'
+# Model Routing Rules
+
+## Decision Tree
+
+```
+Is this task about images/UI/screenshots?
+├── YES → Use vision model (Qwen2.5-VL, MiniCPM-V 4.5)
+└── NO
+    └── Is this quick code generation?
+        ├── YES → Use MiniMax M2.1
+        └── NO
+            └── Is this planning/architecture?
+                ├── YES → Use Gemini 3 Pro
+                └── NO → Default to M2.1
+```
+
+## Specific Triggers
+
+### Use Vision Model When:
+- User uploads image/screenshot
+- Task mentions "UI", "layout", "design", "screenshot"
+- Analyzing PDF pages visually
+- Debugging frontend visual issues
+
+### Use M2.1 When:
+- Writing new functions/methods
+- Refactoring existing code
+- Quick bug fixes
+- Boilerplate generation
+- Test writing
+
+### Use Gemini 3 Pro When:
+- Multi-file architecture decisions
+- Complex debugging requiring reasoning
+- Planning new features
+- Reviewing PRs for logic issues
+
+### Use MinerU When:
+- Parsing PDF documents
+- Extracting tables from PDFs
+- Converting textbook chapters to structured data
+EOF
+
+    # Create workflow
+    cat > "$DCTX_DIR/workflow.md" << 'EOF'
+# Development Workflow
+
+## Before Starting Any Task
+1. Read .dctx/product.md for project context
+2. Read .dctx/tech-stack.md for environment setup
+3. Check .dctx/tracks/ for current active track
+4. Follow routing rules in .dctx/routes.md
+
+## Creating New Features
+1. `dctx track "feature name"` - creates spec + plan files
+2. Edit spec.md with requirements
+3. Edit plan.md with implementation steps
+4. Work through plan, checking off completed items
+5. `dctx done` when complete
+
+## Code Standards
+- TypeScript for frontend
+- Python for backend/ML
+- Always include error handling
+- Write tests for new functions
+- Comment complex logic
+
+## Git Workflow
+- Branch per track: `track/<track-id>-<name>`
+- Commit after each plan step completed
+- PR when track is done
+EOF
+
+    # Create tracks index
+    cat > "$DCTX_DIR/tracks.md" << 'EOF'
+# Tracks
+
+## Active
+<!-- Current work in progress -->
+
+## Completed
+<!-- Archived tracks -->
+EOF
+
+    # Create .gitignore addition
+    echo -e "\n# dctx - don't ignore, this IS your context\n# .dctx/" >> .gitignore 2>/dev/null || true
+    
+    echo -e "${GREEN}✓ Initialized dctx in ${DCTX_DIR}/${NC}"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit ${DCTX_DIR}/product.md with your project info"
+    echo "  2. Edit ${DCTX_DIR}/tech-stack.md with your setup"
+    echo "  3. Run 'dctx track \"your first feature\"' to start"
+}
+
+create_track() {
+    if [ ! -d "$DCTX_DIR" ]; then
+        echo -e "${RED}Not initialized. Run 'dctx init' first${NC}"
+        exit 1
+    fi
+    
+    TRACK_NAME="$1"
+    if [ -z "$TRACK_NAME" ]; then
+        echo -e "${RED}Usage: dctx track \"feature name\"${NC}"
+        exit 1
+    fi
+    
+    # Generate track ID
+    TRACK_ID=$(date +%Y%m%d-%H%M%S)
+    TRACK_DIR="$DCTX_DIR/tracks/$TRACK_ID"
+    
+    mkdir -p "$TRACK_DIR"
+    
+    # Create spec
+    cat > "$TRACK_DIR/spec.md" << EOF
+# Spec: $TRACK_NAME
+
+Created: $(date +%Y-%m-%d)
+Status: active
+
+## Goal
+<!-- What are we building and why? -->
+
+## Requirements
+<!-- Detailed requirements -->
+- [ ] 
+
+## Acceptance Criteria
+<!-- How do we know it's done? -->
+- [ ] 
+
+## Out of Scope
+<!-- What we're NOT doing -->
+EOF
+
+    # Create plan
+    cat > "$TRACK_DIR/plan.md" << EOF
+# Plan: $TRACK_NAME
+
+Track ID: $TRACK_ID
+Created: $(date +%Y-%m-%d)
+Status: active
+
+## Phase 1: Setup
+- [ ] 
+
+## Phase 2: Implementation
+- [ ] 
+
+## Phase 3: Testing
+- [ ] 
+
+## Phase 4: Polish
+- [ ] 
+
+## Notes
+<!-- Implementation notes, blockers, decisions -->
+EOF
+
+    # Update tracks.md
+    sed -i '' "s/## Active/## Active\n- [$TRACK_ID] $TRACK_NAME/" "$DCTX_DIR/tracks.md" 2>/dev/null || \
+    sed -i "s/## Active/## Active\n- [$TRACK_ID] $TRACK_NAME/" "$DCTX_DIR/tracks.md"
+    
+    # Set as current track
+    echo "$TRACK_ID" > "$DCTX_DIR/.current"
+    
+    echo -e "${GREEN}✓ Created track: $TRACK_NAME${NC}"
+    echo "  ID: $TRACK_ID"
+    echo "  Spec: $TRACK_DIR/spec.md"
+    echo "  Plan: $TRACK_DIR/plan.md"
+    echo ""
+    echo "Next: Edit spec.md and plan.md, then start implementing"
+}
+
+show_status() {
+    if [ ! -d "$DCTX_DIR" ]; then
+        echo -e "${RED}Not initialized. Run 'dctx init' first${NC}"
+        exit 1
+    fi
+    
+    echo -e "${BLUE}=== dctx Status ===${NC}"
+    echo ""
+    
+    # Current track
+    if [ -f "$DCTX_DIR/.current" ]; then
+        CURRENT=$(cat "$DCTX_DIR/.current")
+        if [ -d "$DCTX_DIR/tracks/$CURRENT" ]; then
+            echo -e "${GREEN}Active Track:${NC} $CURRENT"
+            
+            # Show plan progress
+            if [ -f "$DCTX_DIR/tracks/$CURRENT/plan.md" ]; then
+                TOTAL=$(grep -c "\- \[" "$DCTX_DIR/tracks/$CURRENT/plan.md" 2>/dev/null || echo 0)
+                DONE=$(grep -c "\- \[x\]" "$DCTX_DIR/tracks/$CURRENT/plan.md" 2>/dev/null || echo 0)
+                echo "  Progress: $DONE/$TOTAL tasks"
+                echo ""
+                echo -e "${YELLOW}Next pending tasks:${NC}"
+                grep "\- \[ \]" "$DCTX_DIR/tracks/$CURRENT/plan.md" | head -3
+            fi
+        fi
+    else
+        echo -e "${YELLOW}No active track${NC}"
+        echo "Run 'dctx track \"name\"' to create one"
+    fi
+    
+    echo ""
+}
+
+generate_prompt() {
+    if [ ! -d "$DCTX_DIR" ]; then
+        echo -e "${RED}Not initialized. Run 'dctx init' first${NC}" >&2
+        exit 1
+    fi
+    
+    echo "# PROJECT CONTEXT"
+    echo ""
+    echo "Read these files before responding. This is persistent context."
+    echo ""
+    echo "---"
+    echo "## Product"
+    cat "$DCTX_DIR/product.md"
+    echo ""
+    echo "---"
+    echo "## Tech Stack"
+    cat "$DCTX_DIR/tech-stack.md"
+    echo ""
+    echo "---"
+    echo "## Routing Rules"
+    cat "$DCTX_DIR/routes.md"
+    echo ""
+    
+    # Include current track if exists
+    if [ -f "$DCTX_DIR/.current" ]; then
+        CURRENT=$(cat "$DCTX_DIR/.current")
+        if [ -d "$DCTX_DIR/tracks/$CURRENT" ]; then
+            echo "---"
+            echo "## Current Track"
+            echo ""
+            if [ -f "$DCTX_DIR/tracks/$CURRENT/spec.md" ]; then
+                cat "$DCTX_DIR/tracks/$CURRENT/spec.md"
+                echo ""
+            fi
+            if [ -f "$DCTX_DIR/tracks/$CURRENT/plan.md" ]; then
+                cat "$DCTX_DIR/tracks/$CURRENT/plan.md"
+            fi
+        fi
+    fi
+    
+    echo ""
+    echo "---"
+    echo "# END CONTEXT - Now respond to the user's request"
+}
+
+mark_done() {
+    if [ ! -f "$DCTX_DIR/.current" ]; then
+        echo -e "${RED}No active track${NC}"
+        exit 1
+    fi
+    
+    CURRENT=$(cat "$DCTX_DIR/.current")
+    
+    # Update status in plan
+    sed -i '' "s/Status: active/Status: completed/" "$DCTX_DIR/tracks/$CURRENT/plan.md" 2>/dev/null || \
+    sed -i "s/Status: active/Status: completed/" "$DCTX_DIR/tracks/$CURRENT/plan.md"
+    
+    # Move from Active to Completed in tracks.md
+    # (simplified - just marks it)
+    echo -e "${GREEN}✓ Marked track $CURRENT as complete${NC}"
+    
+    # Clear current
+    rm "$DCTX_DIR/.current"
+    
+    echo "Run 'dctx track \"name\"' to start a new track"
+}
+
+list_tracks() {
+    if [ ! -d "$DCTX_DIR/tracks" ]; then
+        echo "No tracks yet"
+        exit 0
+    fi
+    
+    echo -e "${BLUE}Tracks:${NC}"
+    for dir in "$DCTX_DIR/tracks"/*/; do
+        if [ -d "$dir" ]; then
+            ID=$(basename "$dir")
+            if [ -f "$dir/plan.md" ]; then
+                STATUS=$(grep "Status:" "$dir/plan.md" | head -1 | cut -d' ' -f2)
+                NAME=$(grep "# Plan:" "$dir/plan.md" | head -1 | sed 's/# Plan: //')
+                
+                if [ -f "$DCTX_DIR/.current" ] && [ "$(cat "$DCTX_DIR/.current")" = "$ID" ]; then
+                    echo -e "  ${GREEN}* [$ID]${NC} $NAME ($STATUS)"
+                else
+                    echo "    [$ID] $NAME ($STATUS)"
+                fi
+            fi
+        fi
+    done
+}
+
+edit_file() {
+    FILE="$1"
+    if [ ! -f "$FILE" ]; then
+        echo -e "${RED}File not found: $FILE${NC}"
+        exit 1
+    fi
+    
+    # Try editors in order of preference
+    if command -v code &> /dev/null; then
+        code "$FILE"
+    elif command -v cursor &> /dev/null; then
+        cursor "$FILE"
+    elif [ -n "$EDITOR" ]; then
+        $EDITOR "$FILE"
+    else
+        nano "$FILE"
+    fi
+}
+
+# Main command router
+case "$1" in
+    init)
+        init_project
+        ;;
+    status)
+        show_status
+        ;;
+    track)
+        create_track "$2"
+        ;;
+    plan)
+        if [ -f "$DCTX_DIR/.current" ]; then
+            CURRENT=$(cat "$DCTX_DIR/.current")
+            edit_file "$DCTX_DIR/tracks/$CURRENT/plan.md"
+        else
+            echo -e "${RED}No active track${NC}"
+        fi
+        ;;
+    spec)
+        if [ -f "$DCTX_DIR/.current" ]; then
+            CURRENT=$(cat "$DCTX_DIR/.current")
+            edit_file "$DCTX_DIR/tracks/$CURRENT/spec.md"
+        else
+            echo -e "${RED}No active track${NC}"
+        fi
+        ;;
+    done)
+        mark_done
+        ;;
+    list)
+        list_tracks
+        ;;
+    switch)
+        if [ -d "$DCTX_DIR/tracks/$2" ]; then
+            echo "$2" > "$DCTX_DIR/.current"
+            echo -e "${GREEN}Switched to track $2${NC}"
+        else
+            echo -e "${RED}Track not found: $2${NC}"
+        fi
+        ;;
+    context)
+        edit_file "$DCTX_DIR/product.md"
+        ;;
+    stack)
+        edit_file "$DCTX_DIR/tech-stack.md"
+        ;;
+    routes)
+        edit_file "$DCTX_DIR/routes.md"
+        ;;
+    prompt)
+        generate_prompt
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        show_help
+        ;;
+esac
