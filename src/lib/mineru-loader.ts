@@ -34,10 +34,11 @@ export interface ParsedChapter {
  */
 export async function loadMinerUChapter(
     chapterNum: number,
-    basePath: string = '/data/mineru'
+    basePath: string = '/parsed-chapters',
+    customPath?: string
 ): Promise<ParsedChapter | null> {
     const chapterId = `Ch${chapterNum}`;
-    const url = `${basePath}/${chapterId}/content_list.json`;
+    const url = customPath || `${basePath}/${chapterId}/content_list.json`;
 
     try {
         console.log(`[MinerU] Fetching chapter ${chapterNum} from ${url}`);

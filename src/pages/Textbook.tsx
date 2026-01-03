@@ -508,7 +508,24 @@ const TextbookPage = () => {
                     </div>
                 </CardContent>
             </Card>
-        </div>
+
+            <div className="flex justify-center pt-8 pb-4">
+                <Button
+                    variant="outline"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={async () => {
+                        if (confirm("Are you sure? This will delete all local textbook data and re-download it.")) {
+                            const { clearTextbook } = await import('@/lib/import-textbook');
+                            await clearTextbook();
+                            window.location.reload();
+                        }
+                    }}
+                >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Reset Course Data (Force Re-download)
+                </Button>
+            </div>
+        </div >
     );
 };
 

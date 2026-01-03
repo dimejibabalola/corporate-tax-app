@@ -34,6 +34,7 @@ interface ChapterDef {
     title: string;
     startPage: number;
     endPage: number;
+    jsonPath?: string;
 }
 
 /**
@@ -60,20 +61,20 @@ interface ParsedSubsection {
 
 const CHAPTER_DEFINITIONS: ChapterDef[] = [
     { number: 1, title: 'An Overview of the Taxation of Corporations and Shareholders', startPage: 3, endPage: 68 },
-    { number: 2, title: 'Formation of a Corporation', startPage: 71, endPage: 168 },
-    { number: 3, title: 'Capital Structure', startPage: 169, endPage: 207 },
-    { number: 4, title: 'Nonliquidating Distributions', startPage: 209, endPage: 274 },
-    { number: 5, title: 'Redemptions and Partial Liquidations', startPage: 275, endPage: 346 },
-    { number: 6, title: 'Stock Dividends and Section 306 Stock', startPage: 347, endPage: 381 },
-    { number: 7, title: 'Complete Liquidations', startPage: 383, endPage: 426 },
-    { number: 8, title: 'Taxable Corporate Acquisitions', startPage: 427, endPage: 471 },
-    { number: 9, title: 'Acquisitive Reorganizations', startPage: 473, endPage: 565 },
-    { number: 10, title: 'Corporate Divisions', startPage: 567, endPage: 634 },
-    { number: 11, title: 'Nonacquisitive, Nondivisive Reorganizations', startPage: 635, endPage: 661 },
-    { number: 12, title: 'Carryovers of Corporate Tax Attributes', startPage: 663, endPage: 730 },
-    { number: 13, title: 'Affiliated Corporations', startPage: 731, endPage: 785 },
-    { number: 14, title: 'Anti-Avoidance Rules', startPage: 787, endPage: 834 },
-    { number: 15, title: 'S Corporations', startPage: 835, endPage: 910 },
+    { number: 2, title: 'Formation of a Corporation', startPage: 71, endPage: 168, jsonPath: '/parsed-chapters/Ch2_Formation_of_Corp/64b0aa02-6cda-4292-932c-1b3c35e2a36e_content_list.json' },
+    { number: 3, title: 'Capital Structure', startPage: 169, endPage: 207, jsonPath: '/parsed-chapters/Ch3_Capital_Structure/06179aeb-2683-449c-b040-828ac9412c90_content_list.json' },
+    { number: 4, title: 'Nonliquidating Distributions', startPage: 209, endPage: 274, jsonPath: '/parsed-chapters/Ch4_Nonliquidating_Distributions/d4cea686-0820-45c1-aa94-43ac539cf7c8_content_list.json' },
+    { number: 5, title: 'Redemptions and Partial Liquidations', startPage: 275, endPage: 346, jsonPath: '/parsed-chapters/Ch5_Redemptions_and_Partial_Liq/e3b2a5b9-0e2d-4ccf-81d4-f55f11e643c5_content_list.json' },
+    { number: 6, title: 'Stock Dividends and Section 306 Stock', startPage: 347, endPage: 381, jsonPath: '/parsed-chapters/Ch6_Stock_Dividends_and_Sec_306/8509b02e-478b-437f-a789-eb3974bde042_content_list.json' },
+    { number: 7, title: 'Complete Liquidations', startPage: 383, endPage: 426, jsonPath: '/parsed-chapters/Ch7_Complete_Liquidations/1c630aed-8a7e-44c9-9e91-56bd8dd6715b_content_list.json' },
+    { number: 8, title: 'Taxable Corporate Acquisitions', startPage: 427, endPage: 471, jsonPath: '/parsed-chapters/Ch8_Taxable_Corp_Acquisitions/f715e702-c229-4890-baa8-3f021871e711_content_list.json' },
+    { number: 9, title: 'Acquisitive Reorganizations', startPage: 473, endPage: 565, jsonPath: '/parsed-chapters/Ch9_Acquisitive_Reorgs/32deec7b-4088-464e-aacd-239043f0f0e5_content_list.json' },
+    { number: 10, title: 'Corporate Divisions', startPage: 567, endPage: 634, jsonPath: '/parsed-chapters/Ch10_Corp_Divisions/2f63beec-c5aa-4c96-8430-84b19e9d0e1b_content_list.json' },
+    { number: 11, title: 'Nonacquisitive, Nondivisive Reorganizations', startPage: 635, endPage: 661, jsonPath: '/parsed-chapters/Ch11_Nonacquisitive_Reorgs/a8a4acff-bf7f-4458-a5f2-cc24494e8c28_content_list.json' },
+    { number: 12, title: 'Carryovers of Corporate Tax Attributes', startPage: 663, endPage: 730, jsonPath: '/parsed-chapters/Ch12_Carryovers_of_Attributes/83f0985e-ebce-43bd-a145-6c01596705c6_content_list.json' },
+    { number: 13, title: 'Affiliated Corporations', startPage: 731, endPage: 785, jsonPath: '/parsed-chapters/Ch13_Affiliated_Corps/6c40e00f-c176-43e4-9e2f-afa9d0f1d232_content_list.json' },
+    { number: 14, title: 'Anti-Avoidance Rules', startPage: 787, endPage: 834, jsonPath: '/parsed-chapters/Ch14_Anti_Avoidance_Rules/5fafc1e9-2aa6-4cdc-84d1-6e66b24970e8_content_list.json' },
+    { number: 15, title: 'S Corporations', startPage: 835, endPage: 910, jsonPath: '/parsed-chapters/Ch15_S_Corporations/94297318-07a2-425e-abd3-6151aa789283_content_list.json' },
 ];
 
 // ============================================================================
@@ -270,18 +271,35 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
 
         let totalPages = 0;
         let totalSections = 0;
+        let totalFootnotes = 0;
         let chaptersLoaded = 0;
 
         // Process each chapter
         for (const chapterDef of CHAPTER_DEFINITIONS) {
+            // SKIP Chapter 1 as requested
+            if (chapterDef.number === 1) {
+                console.log('[MinerU Import] Skipping Chapter 1 (via request)');
+                continue;
+            }
+
+            // Skip if no JSON path defined (shouldn't happen for 2-15)
+            if (!chapterDef.jsonPath) {
+                console.warn(`[MinerU Import] No JSON path for Ch${chapterDef.number}`);
+                continue;
+            }
+
             const chapterId = `ch-${chapterDef.number}`;
 
-            // Try to load MinerU content
-            const mineruChapter = await loadMinerUChapter(chapterDef.number);
+            // Load MinerU content from specific path
+            const mineruChapter = await loadMinerUChapter(
+                chapterDef.number,
+                undefined,
+                chapterDef.jsonPath
+            );
 
-            if (mineruChapter && mineruChapter.blocks.length > 0 && mineruChapter.rawBlocks) {
+            if (mineruChapter && mineruChapter.rawBlocks && mineruChapter.rawBlocks.length > 0) {
                 // Success! Use MinerU structured content
-                console.log(`[MinerU Import] Ch${chapterDef.number}: Loaded ${mineruChapter.blocks.length} blocks`);
+                console.log(`[MinerU Import] Ch${chapterDef.number}: Loaded ${mineruChapter.rawBlocks.length} blocks from ${chapterDef.jsonPath}`);
 
                 // Parse sections from raw MinerU blocks
                 const parsedSections = parseChapterSections(mineruChapter.rawBlocks, chapterDef.startPage);
@@ -337,12 +355,56 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
                     await db.subsections.bulkPut(subsectionRecords);
                 }
 
+                // -----------------------------------------------------------
+                // EXTRACT FOOTNOTES
+                // -----------------------------------------------------------
+                const pageFootnotes: PageFootnote[] = [];
+
+                // Identify footnote blocks
+                const footnoteBlocks = mineruChapter.rawBlocks.filter(b =>
+                    b.type === 'page_footnote' ||
+                    (b.type === 'text' && b.text && /^\d+\s+/.test(b.text) && (b.bbox?.[1] || 0) > 800) // Fallback for bottom-of-page text
+                );
+
+                for (const fb of footnoteBlocks) {
+                    if (!fb.text) continue;
+
+                    // Simple parsing: separate number from text
+                    // If type is explicitly 'page_footnote', trust the content
+                    // Check for leading number
+                    const match = fb.text.trim().match(/^(\d+)\s+(.+)/s);
+                    let footNumber = 0;
+                    let footText = fb.text;
+
+                    if (match) {
+                        footNumber = parseInt(match[1]);
+                        footText = match[2];
+                    }
+
+                    // Assign to the correct page
+                    const pageNum = chapterDef.startPage + (fb.page_idx || 0);
+                    // Generate a deterministic ID based on chapter, page, and content hash/index
+                    // (using uuid for now for simplicity)
+
+                    pageFootnotes.push({
+                        id: uuidv4(),
+                        pageId: uuidv4(), // Placeholder, will fix when creating pages
+                        footnoteNumber: footNumber,
+                        text: footText,
+                        // temporary field to help linking (casted as any to avoid type error during temp storage)
+                        _pageIdx: fb.page_idx
+                    } as any);
+                }
+
+
                 // Create database entries for each page with correct section mapping
                 const pages: TextbookPage[] = [];
                 const pagesInChapter = chapterDef.endPage - chapterDef.startPage + 1;
+                const chapterFootnotesToInsert: PageFootnote[] = [];
 
                 for (let pageOffset = 0; pageOffset < pagesInChapter; pageOffset++) {
                     const bookPageNum = chapterDef.startPage + pageOffset;
+                    const pageId = uuidv4();
 
                     // Find which section this page belongs to
                     const matchingSection = findSectionForPage(pageOffset, parsedSections);
@@ -354,22 +416,16 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
                     // Check if this page starts a new section
                     const startsSection = parsedSections.some(s => s.startPageIdx === pageOffset);
 
-                    // Get RAW MinerU blocks for this page - store as JSON for direct rendering
-                    const rawPageBlocks = mineruChapter.rawBlocksByPage.get(pageOffset);
-                    let pageContent: string;
+                    // Get RAW MinerU blocks for this page
+                    const rawPageBlocks = mineruChapter.rawBlocksByPage.get(pageOffset) || [];
 
-                    if (rawPageBlocks && rawPageBlocks.length > 0) {
-                        // Store raw MinerU blocks as JSON string for direct rendering
-                        pageContent = JSON.stringify(rawPageBlocks);
-                    } else if (pageOffset === 0) {
-                        // First page uses all raw blocks if no per-page mapping
-                        pageContent = JSON.stringify(mineruChapter.rawBlocks);
-                    } else {
-                        pageContent = JSON.stringify([]);
-                    }
+                    // Filter out footnotes from the main content logic if they duplicate
+                    // (MinerU sometimes separates them, sometimes not. Use raw blocks as source of truth for rendering)
+
+                    const pageContent = JSON.stringify(rawPageBlocks);
 
                     pages.push({
-                        id: uuidv4(),
+                        id: pageId,
                         chapterId,
                         sectionId,
                         sectionTitle,
@@ -377,43 +433,31 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
                         content: pageContent,
                         startsNewSection: startsSection,
                     });
+
+                    // Link footnotes for this page
+                    const footnotesForThisPage = pageFootnotes.filter((f: any) => f._pageIdx === pageOffset);
+                    for (const fn of footnotesForThisPage) {
+                        chapterFootnotesToInsert.push({
+                            id: fn.id,
+                            pageId: pageId, // Link to actual page UUID
+                            footnoteNumber: fn.footnoteNumber,
+                            text: fn.text
+                        });
+                    }
                 }
 
-                // Bulk insert pages
+                // Bulk insert pages and footnotes
                 await db.textbookPages.bulkPut(pages);
+                if (chapterFootnotesToInsert.length > 0) {
+                    await db.pageFootnotes.bulkPut(chapterFootnotesToInsert);
+                    totalFootnotes += chapterFootnotesToInsert.length;
+                }
+
                 totalPages += pages.length;
                 chaptersLoaded++;
 
             } else {
-                // No MinerU content - create placeholder pages with default section
-                console.warn(`[MinerU Import] Ch${chapterDef.number}: No MinerU content found`);
-
-                // Create default section
-                await db.sections.put({
-                    id: `${chapterId}-A`,
-                    textbookId: 'corporate-tax',
-                    chapterId,
-                    letter: 'A',
-                    title: chapterDef.title,
-                    startPage: chapterDef.startPage,
-                    endPage: chapterDef.endPage,
-                });
-                totalSections++;
-
-                const pages: TextbookPage[] = [];
-                for (let p = chapterDef.startPage; p <= chapterDef.endPage; p++) {
-                    pages.push({
-                        id: uuidv4(),
-                        chapterId,
-                        sectionId: `${chapterId}-A`,
-                        sectionTitle: chapterDef.title,
-                        pageNumber: p,
-                        content: `## Chapter ${chapterDef.number}: ${chapterDef.title}\n\n*MinerU content not yet processed. Run:*\n\n\`\`\`bash\ncd pdf-processing\npython mineru_cpu.py -p pdf-processing/chapters/Ch${chapterDef.number}*.pdf -o public/data/mineru/Ch${chapterDef.number}\n\`\`\``,
-                        startsNewSection: p === chapterDef.startPage,
-                    });
-                }
-                await db.textbookPages.bulkPut(pages);
-                totalPages += pages.length;
+                console.warn(`[MinerU Import] Ch${chapterDef.number}: No content found at ${chapterDef.jsonPath}`);
             }
 
             // Create chapter entry
@@ -433,13 +477,13 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
         localStorage.setItem('mineruImportComplete', 'true');
         localStorage.setItem('textbookImported', 'true');
 
-        console.log(`[MinerU Import] Complete! ${totalPages} pages, ${totalSections} sections, ${chaptersLoaded}/15 chapters with MinerU content`);
+        console.log(`[MinerU Import] Complete! ${totalPages} pages, ${totalSections} sections, ${totalFootnotes} footnotes from ${chaptersLoaded}/15 chapters`);
 
         return {
             success: true,
             pagesCount: totalPages,
-            footnotesCount: 0,
-            message: `Imported ${totalPages} pages, ${totalSections} sections from ${chaptersLoaded} MinerU chapters`,
+            footnotesCount: totalFootnotes,
+            message: `Imported ${totalPages} pages, ${totalSections} sections, ${totalFootnotes} footnotes`,
         };
 
     } catch (error) {
