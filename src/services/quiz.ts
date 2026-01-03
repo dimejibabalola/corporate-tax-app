@@ -253,6 +253,11 @@ export function generateDemoQuiz(config: QuizConfig): Question[] {
     // Filter by chapter if specified
     if (config.chapterId) {
         questions = questions.filter(q => q.chapterId === config.chapterId);
+
+        // Filter by section if specified (and chapter matches)
+        if (config.sectionId) {
+            questions = questions.filter(q => q.sectionId === config.sectionId);
+        }
     }
 
     // Filter by question types

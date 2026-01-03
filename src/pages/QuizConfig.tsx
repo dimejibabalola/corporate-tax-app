@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
@@ -35,7 +36,8 @@ const QuizConfig = () => {
 
   // Quiz Configuration State
   const [questionCount, setQuestionCount] = useState([10]);
-  const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("intermediate");
   const [questionTypes, setQuestionTypes] = useState<Record<QuestionType, boolean>>({
     'MC': true,
@@ -60,13 +62,27 @@ const QuizConfig = () => {
   const hasAnswered = currentQuestion && answers[currentQuestion.id] !== undefined;
   const isEvaluated = currentQuestion && evaluations[currentQuestion.id] !== undefined;
 
-  const toggleChapter = (id: string) => {
-    if (selectedChapters.includes(id)) {
-      setSelectedChapters(selectedChapters.filter(c => c !== id));
-    } else {
-      setSelectedChapters([...selectedChapters, id]);
+
+  // Derive available sections based on selected chapter
+  const availableSections = useMemo(() => {
+    if (!selectedChapterId) return [];
+
+    // Find the chapter definition in TEXTBOOK_STRUCTURE
+    for (const part of TEXTBOOK_STRUCTURE) {
+      const chapterDef = part.chapters.find(c => {
+        // Try to find matching chapter by number or ID if possible. 
+        // Since chapters from DB have IDs, we need to map back.
+        // Let's assume selectedChapterId is the DB ID.
+        const dbChapter = chapters?.find(dbC => dbC.id === selectedChapterId);
+        return dbChapter && c.number === dbChapter.number;
+      });
+
+      if (chapterDef) {
+        return chapterDef.sections;
+      }
     }
-  };
+    return [];
+  }, [selectedChapterId, chapters]);
 
   const toggleQuestionType = (type: QuestionType) => {
     setQuestionTypes(prev => ({ ...prev, [type]: !prev[type] }));
@@ -84,8 +100,10 @@ const QuizConfig = () => {
 
     // Generate quiz from demo questions
     const generatedQuestions = generateDemoQuiz({
-      chapterId: selectedChapters.length === 1 ? selectedChapters[0] : undefined,
+      chapterId: selectedChapterId || undefined,
+      sectionId: selectedSectionId || undefined,
       questionTypes: activeTypes,
+
       difficulty,
       count: questionCount[0]
     });
@@ -102,7 +120,8 @@ const QuizConfig = () => {
     setShowExplanation(false);
     setPhase('taking');
     logActivity('GENERATE_QUIZ', {
-      chapters: selectedChapters,
+      chapterId: selectedChapterId,
+      sectionId: selectedSectionId,
       count: generatedQuestions.length,
       difficulty
     });
@@ -155,7 +174,7 @@ const QuizConfig = () => {
       await saveQuizAttempt(
         userId,
         textbook.id,
-        selectedChapters.length === 1 ? selectedChapters[0] : undefined,
+        selectedChapterId || undefined,
         questions,
         evaluatedAnswers
       );
@@ -211,8 +230,8 @@ const QuizConfig = () => {
             <div
               key={letter}
               className={`flex items-center space-x-3 p-4 border rounded-lg transition-colors ${isCorrect ? 'bg-green-50 border-green-500' :
-                  isWrong ? 'bg-red-50 border-red-500' :
-                    answers[q.id] === letter ? 'border-primary bg-primary/5' : 'hover:bg-muted/30'
+                isWrong ? 'bg-red-50 border-red-500' :
+                  answers[q.id] === letter ? 'border-primary bg-primary/5' : 'hover:bg-muted/30'
                 }`}
             >
               <RadioGroupItem value={letter} id={`${q.id}-${letter}`} />
@@ -246,8 +265,8 @@ const QuizConfig = () => {
             <div
               key={value}
               className={`flex-1 flex items-center justify-center space-x-2 p-6 border rounded-lg transition-colors cursor-pointer ${isCorrect ? 'bg-green-50 border-green-500' :
-                  isWrong ? 'bg-red-50 border-red-500' :
-                    answers[q.id] === value ? 'border-primary bg-primary/5' : 'hover:bg-muted/30'
+                isWrong ? 'bg-red-50 border-red-500' :
+                  answers[q.id] === value ? 'border-primary bg-primary/5' : 'hover:bg-muted/30'
                 }`}
             >
               <RadioGroupItem value={value} id={`${q.id}-${value}`} />
@@ -271,10 +290,10 @@ const QuizConfig = () => {
         disabled={isEvaluated}
         placeholder="Type your answer..."
         className={`w-full p-4 text-lg border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary ${isEvaluated
-            ? evaluations[q.id]?.isCorrect
-              ? 'bg-green-50 border-green-500'
-              : 'bg-red-50 border-red-500'
-            : ''
+          ? evaluations[q.id]?.isCorrect
+            ? 'bg-green-50 border-green-500'
+            : 'bg-red-50 border-red-500'
+          : ''
           }`}
       />
       {isEvaluated && !evaluations[q.id]?.isCorrect && (
@@ -297,44 +316,69 @@ const QuizConfig = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Layers className="h-5 w-5 text-primary" />
-                Select Chapters
+                Select Material
               </CardTitle>
-              <CardDescription>Choose what material you want to cover. Leave empty to quiz all chapters.</CardDescription>
+              <CardDescription>Choose the chapter and section you want to study.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="max-h-[300px] overflow-y-auto space-y-1 pr-2">
-                {TEXTBOOK_STRUCTURE.map((part) => (
-                  <div key={part.number} className="mb-4">
-                    <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                      Part {part.number}: {part.title}
-                    </h4>
-                    {part.chapters.map((chapterDef) => {
-                      const chapter = chapters?.find(c => c.number === chapterDef.number);
-                      if (!chapter) return null;
-
-                      return (
-                        <div
-                          key={chapter.id}
-                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedChapters.includes(chapter.id)
-                              ? 'border-primary bg-primary/5'
-                              : 'border-border hover:border-gray-300'
-                            }`}
-                          onClick={() => toggleChapter(chapter.id)}
-                        >
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selectedChapters.includes(chapter.id) ? 'bg-primary border-primary' : 'border-gray-400'
-                            }`}>
-                            {selectedChapters.includes(chapter.id) && (
-                              <CheckCircle2 size={14} className="text-white" />
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">Ch {chapter.number}. {chapter.title}</p>
-                          </div>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Chapter</Label>
+                <Select
+                  value={selectedChapterId || "all"}
+                  onValueChange={(val) => {
+                    if (val === "all") {
+                      setSelectedChapterId(null);
+                      setSelectedSectionId(null);
+                    } else {
+                      setSelectedChapterId(val);
+                      setSelectedSectionId(null);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a Chapter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Chapters</SelectItem>
+                    {TEXTBOOK_STRUCTURE.map((part) => (
+                      <div key={part.number}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                          Part {part.number}: {part.title}
                         </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                        {part.chapters.map((chapterDef) => {
+                          const chapter = chapters?.find(c => c.number === chapterDef.number);
+                          if (!chapter) return null;
+                          return (
+                            <SelectItem key={chapter.id} value={chapter.id}>
+                              Ch {chapter.number}: {chapter.title}
+                            </SelectItem>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className={!selectedChapterId ? "text-muted-foreground" : ""}>Section (Optional)</Label>
+                <Select
+                  value={selectedSectionId || "all"}
+                  onValueChange={(val) => setSelectedSectionId(val === "all" ? null : val)}
+                  disabled={!selectedChapterId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={!selectedChapterId ? "Select a chapter first" : "All Sections"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sections</SelectItem>
+                    {availableSections.map((section) => (
+                      <SelectItem key={section.letter} value={section.letter}>
+                        Section {section.letter}: {section.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
@@ -459,8 +503,8 @@ const QuizConfig = () => {
             {/* Explanation */}
             {showExplanation && evaluations[currentQuestion.id] && (
               <div className={`mt-6 p-4 rounded-lg ${evaluations[currentQuestion.id].isCorrect
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-amber-50 border border-amber-200'
+                ? 'bg-green-50 border border-green-200'
+                : 'bg-amber-50 border border-amber-200'
                 }`}>
                 <h4 className={`font-semibold mb-2 ${evaluations[currentQuestion.id].isCorrect ? 'text-green-700' : 'text-amber-700'
                   }`}>

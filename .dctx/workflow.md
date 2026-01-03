@@ -11,6 +11,42 @@
 - Run: `mineru -p input.pdf -o output_folder/`
 - NO page limits, NO browser uploads
 
+WORKFLOW:
+
+Step 1: Request upload URLs
+POST https://mineru.net/api/v4/file-urls/batch
+Headers: 
+  Authorization: Bearer {token}
+  Content-Type: application/json
+Body:
+{
+  "files": [
+    {"name": "ch02.pdf", "data_id": "ch02"},
+    {"name": "ch03.pdf", "data_id": "ch03"},
+    ... (all chapters)
+  ],
+  "model_version": "vlm"
+}
+
+Response gives: batch_id + file_urls array
+
+Step 2: Upload each PDF via PUT
+For each file_url returned:
+  PUT {file_url} with PDF binary data (no Content-Type header needed)
+
+Step 3: Poll for results
+GET https://mineru.net/api/v4/extract-results/batch/{batch_id}
+Headers: Authorization: Bearer {token}
+
+Poll every 30 seconds until all files show state="done"
+
+Step 4: Download results
+For each file with state="done", download full_zip_url
+Extract to ./parsed-chapters/ch02/, ch03/, etc.
+
+PDFs located at: [YOUR PDF FOLDER PATH]
+Parse chapters 2-15. Update plan.md after each completes.
+
 ## Creating New Features
 1. `dctx track "feature name"` - creates spec + plan
 2. Edit spec.md with requirements
@@ -35,3 +71,12 @@
 - Python 3.7 (we're on 3.12 with uv)
 - Manual regex for table extraction
 - Any "basic" PDF solution - we have MinerU
+
+## Deployment Configuration
+### Vercel & Supabase
+1. **Redirect URLs**: Ensure Supabase Auth settings include your Vercel URL.
+   - Go to Supabase Dashboard > Authentication > URL Configuration.
+   - Add `https://workspace-dimeji-babalolas-projects.vercel.app/**` to **Redirect URLs**.
+   - Set **Site URL** to `https://workspace-dimeji-babalolas-projects.vercel.app`.
+2. **Environment Variables**:
+   - Ensure `VITE_APP_URL` in Vercel settings matches the deployment URL.
