@@ -95,3 +95,28 @@ Use the Model Context Protocol (MCP) servers to manage infrastructure directly f
 
 ### GitHub MCP
 - Use `mcp_github-mcp-server_search_repositories` or `list_pull_requests` to manage code usage.
+
+## Supabase Realtime Setup
+1. **Enable Realtime**:
+   - Go to Database → Replication in Supabase.
+
+2. **Subscribe to Changes**:
+   ```tsx
+   const channel = supabase
+     .channel('messages')
+     .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
+       if (payload.eventType === 'INSERT') {
+         setMessages((prev) => [...prev, payload.new]);
+       }
+     })
+     .subscribe();
+   ```
+
+3. **Implement Presence**:
+   ```tsx
+   await channel.track({ user: 'John', online_at: new Date() });
+   ```
+
+4. **Pro Tips**:
+   - Use RLS for security.
+   - Combine with React Query.
