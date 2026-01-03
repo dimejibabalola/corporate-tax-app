@@ -13,7 +13,7 @@
 
 import { db, TextbookPage, PageFootnote, Section, Subsection } from './db';
 import { v4 as uuidv4 } from 'uuid';
-import { loadMinerUChapter, chapterBlocksToMarkdown, ParsedChapter, MinerUBlock, MinerUTextBlock } from './mineru-loader';
+import { loadMinerUChapter, chapterBlocksToMarkdown, ParsedChapter, MinerUBlock } from './mineru-loader';
 import { initializeFromSupabase, syncSupabaseToLocal, ensureTextbookForUser } from './supabase-loader';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -128,7 +128,7 @@ function parseChapterSections(rawBlocks: MinerUBlock[], chapterStartPage: number
     // Filter to only text blocks with text_level = 1 (H1 headers)
     for (const block of rawBlocks) {
         if (block.type !== 'text') continue;
-        const textBlock = block as MinerUTextBlock;
+        const textBlock = block;
         if (textBlock.text_level !== 1) continue;
 
         const text = textBlock.text?.trim() || '';
@@ -212,9 +212,16 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
     try {
         // Check if data already exists
         const existingPages = await db.textbookPages.count();
-        
+
         if (existingPages > 0) {
             console.log('[Import] Data already exists, skipping import');
+
+            // FIX: Ensure textbook record exists for current user even if pages are loaded
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await ensureTextbookForUser(user.id);
+            }
+
             return {
                 success: true,
                 pagesCount: existingPages,
@@ -230,13 +237,13 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
             const supabaseResult = await syncSupabaseToLocal();
             if (supabaseResult.success && supabaseResult.pages > 0) {
                 console.log('[Import] Loaded from Supabase:', supabaseResult.message);
-                
+
                 // Ensure textbook record exists for current user
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
                     await ensureTextbookForUser(user.id);
                 }
-                
+
                 return {
                     success: true,
                     pagesCount: supabaseResult.pages,
@@ -250,6 +257,13 @@ export async function importTextbookFromJSON(): Promise<ImportResult> {
 
         // Fall back to local MinerU JSON files
         console.log('[MinerU Import] Starting local JSON import...');
+
+        // [FIX] Ensure textbook record exists for current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await ensureTextbookForUser(user.id);
+        }
+
         localStorage.setItem('mineruImportComplete', 'false');
 
         console.log('[MinerU Import] Starting MinerU-only import with section extraction...');

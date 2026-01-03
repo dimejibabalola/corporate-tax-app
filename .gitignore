@@ -34,3 +34,4 @@ dist-ssr
 parsed-chapters/
 pdf-processing/
 public/data/mineru/
+.env*.local

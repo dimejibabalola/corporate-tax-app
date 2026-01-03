@@ -16,6 +16,11 @@
 - NO page limits, NO browser uploads
 - **Output**: markdown + content_list.json (tables, equations, footnotes)
 
+### Option 2: MinerU.net API (Backup)
+- API Key in `.env`: `MINERU_API_KEY=eyJ0eXBlIjoiSldU...`
+- Endpoint: `https://mineru.net/api/v4/file-urls/batch`
+- 2000 pages/day free tier
+
 ## Folder Structure
 ```
 /parsed-chapters

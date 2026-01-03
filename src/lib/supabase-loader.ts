@@ -22,14 +22,14 @@ export async function loadChaptersFromSupabase(): Promise<Chapter[]> {
     .from('chapters')
     .select('*')
     .order('number');
-  
+
   if (error) {
     console.error('[Supabase] Error loading chapters:', error);
     return [];
   }
 
   // Map Supabase format to local format
-  return (data || []).map(ch => ({
+  return (data || [] as any[]).map((ch: any) => ({
     id: ch.id,
     textbookId: ch.textbook_id || 'corporate-tax',
     partId: ch.part_id || 'part-1',
@@ -45,19 +45,19 @@ export async function loadChaptersFromSupabase(): Promise<Chapter[]> {
  */
 export async function loadSectionsFromSupabase(chapterId?: string): Promise<Section[]> {
   let query = supabase.from('sections').select('*');
-  
+
   if (chapterId) {
     query = query.eq('chapter_id', chapterId);
   }
-  
+
   const { data, error } = await query.order('id');
-  
+
   if (error) {
     console.error('[Supabase] Error loading sections:', error);
     return [];
   }
 
-  return (data || []).map(sec => ({
+  return (data || [] as any[]).map((sec: any) => ({
     id: sec.id,
     textbookId: sec.textbook_id || 'corporate-tax',
     chapterId: sec.chapter_id,
@@ -76,22 +76,22 @@ export async function loadPagesFromSupabase(
   sectionId?: string
 ): Promise<TextbookPage[]> {
   let query = supabase.from('textbook_pages').select('*');
-  
+
   if (chapterId) {
     query = query.eq('chapter_id', chapterId);
   }
   if (sectionId) {
     query = query.eq('section_id', sectionId);
   }
-  
+
   const { data, error } = await query.order('page_number');
-  
+
   if (error) {
     console.error('[Supabase] Error loading pages:', error);
     return [];
   }
 
-  return (data || []).map(page => ({
+  return (data || [] as any[]).map((page: any) => ({
     id: page.id,
     pageNumber: page.page_number,
     chapterId: page.chapter_id,
@@ -138,6 +138,8 @@ export async function syncSupabaseToLocal(): Promise<{
     await db.sections.clear();
     await db.textbookPages.clear();
 
+    console.log(`[Supabase Sync] Clearing local DB and inserting: ${chapters.length} chapters, ${sections.length} sections, ${pages.length} pages`);
+
     if (chapters.length > 0) {
       await db.chapters.bulkPut(chapters);
     }
@@ -180,7 +182,7 @@ export async function syncSupabaseToLocal(): Promise<{
  */
 export async function ensureTextbookForUser(userId: string): Promise<void> {
   const textbookId = 'corporate-tax';
-  
+
   // Check if textbook already exists for this user
   const existing = await db.textbooks.where('userId').equals(userId).first();
   if (existing) {
@@ -217,16 +219,16 @@ export async function ensureTextbookForUser(userId: string): Promise<void> {
 /**
  * Main initialization function - tries Supabase first, falls back to local JSON
  */
-export async function initializeFromSupabase(): Promise<boolean> {
+export async function initializeFromSupabase(force = false): Promise<boolean> {
   const needsSync = await shouldLoadFromSupabase();
-  
-  if (!needsSync) {
+
+  if (!needsSync && !force) {
     console.log('[Supabase] Local data exists, skipping sync');
     return true;
   }
 
-  console.log('[Supabase] Local DB empty, loading from Supabase...');
+  console.log(force ? '[Supabase] Force sync triggered...' : '[Supabase] Local DB empty, loading from Supabase...');
   const result = await syncSupabaseToLocal();
-  
+
   return result.success;
 }
