@@ -80,3 +80,18 @@ Parse chapters 2-15. Update plan.md after each completes.
    - Set **Site URL** to `https://workspace-dimeji-babalolas-projects.vercel.app`.
 2. **Environment Variables**:
    - Ensure `VITE_APP_URL` in Vercel settings matches the deployment URL.
+
+## MCP Usage Guide
+Use the Model Context Protocol (MCP) servers to manage infrastructure directly from the chat.
+
+### Supabase MCP
+- **List Projects**: `mcp_supabase-mcp-server_list_projects` - Find project IDs.
+- **Get URL**: `mcp_supabase-mcp-server_get_project_url` (Project ID: `wjokjfaffcboifkxkhlz`)
+  - **Current Project URL**: `https://wjokjfaffcboifkxkhlz.supabase.co`
+- **Database**: Use `mcp_supabase-mcp-server_execute_sql` for queries (read-only recommended).
+
+### Vercel MCP
+- Use for checking deployment status and inspecting build logs if available.
+
+### GitHub MCP
+- Use `mcp_github-mcp-server_search_repositories` or `list_pull_requests` to manage code usage.
