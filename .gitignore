@@ -23,3 +23,14 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# dctx - don't ignore, this IS your context
+# .dctx/
+
+# dctx - don't ignore, this IS your context
+# .dctx/
+
+# Large artifacts
+parsed-chapters/
+pdf-processing/
+public/data/mineru/

@@ -1,34 +1,39 @@
 # Tech Stack & Environment
 
 ## Models
-- **Planning/Architecture**: Gemini 3 Pro (via Gemini CLI + Conductor or Antigravity)
-- **Fast Coding**: MiniMax M2.1 (via OpenRouter or direct API)
-- **Vision/UI Analysis**: Qwen2.5-VL or MiniCPM-V 4.5 (via OpenRouter)
-
-## Model Routing Rules
-- If task involves images/screenshots/UI → route to vision model
-- If task is quick code generation/refactor → route to M2.1
-- If task is architecture/planning/complex reasoning → route to Gemini 3 Pro
-- If task involves PDF parsing → use MinerU (see below)
+- **Primary**: Gemini 3 Pro (via Antigravity / Gemini CLI)
+- **Fallback**: Gemini 3 Flash (if Pro hits rate limits)
+- That's it. Keep it simple.
 
 ## API Keys (stored in .env)
-- MINIMAX_API_KEY - for M2.1 direct access
-- OPENROUTER_API_KEY - for model routing
 - GEMINI_API_KEY - for Gemini CLI
 - Never ask about API key setup - already configured
 
-## PDF Parsing (MinerU)
-- Using MinerU 2.5 for PDF extraction
-- GPU inference via HuggingFace Space (20 page chunks)
-- Local API: `mineru-api --host 0.0.0.0 --port 8000`
-- Endpoint: POST http://localhost:8000/file_parse
-- Output: markdown + content_list.json with tables, equations, footnotes
+## PDF Parsing (MinerU 2.5)
+- **NOT using**: PyPDF2, pdfplumber, Tesseract, tabula-py (outdated)
+- Install: `uv pip install -U "mineru[all]"`
+- Run: `mineru -p input.pdf -o output_folder/`
+- NO page limits, NO browser uploads
+- **Output**: markdown + content_list.json (tables, equations, footnotes)
+
+## Folder Structure
+```
+/parsed-chapters
+  /ch01
+    /part1   (pages 1-20)
+    /part2   (pages 21-40)
+  /ch02
+  ...
+```
 
 ## Development Environment
-- IDE: Google Antigravity
-- CLI: Gemini CLI with Conductor extension
+- IDE: Google Antigravity / Cursor
+- CLI: Gemini CLI
 - Package manager: uv for Python, npm for Node
+- OS: macOS
 
-## Code Style
-<!-- Add your preferences -->
-- 
+## NEVER SUGGEST
+- PyPDF2, pdfplumber, Tesseract, tabula-py
+- Python 3.7 (we use 3.12 with uv)
+- Any "basic" PDF solution - we have MinerU
+

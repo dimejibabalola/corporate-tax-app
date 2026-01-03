@@ -39,12 +39,22 @@ async function supabaseRequest(endpoint, method, body) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  
+
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Supabase error: ${response.status} ${text}`);
   }
   return response;
+}
+
+async function deleteChapter(chapterId) {
+  console.log(`  Cleaning up existing data for ${chapterId}...`);
+  // Delete pages
+  await supabaseRequest(`textbook_pages?chapter_id=eq.${chapterId}`, 'DELETE');
+  // Delete sections 
+  await supabaseRequest(`sections?chapter_id=eq.${chapterId}`, 'DELETE');
+  // Delete chapter
+  await supabaseRequest(`chapters?id=eq.${chapterId}`, 'DELETE');
 }
 
 // Section pattern matching
@@ -101,7 +111,7 @@ async function uploadChapter(chapterNum) {
 
   // Try to load MinerU content
   const contentPath = path.join(process.cwd(), `public/data/mineru/Ch${chapterNum}/content_list.json`);
-  
+
   if (!fs.existsSync(contentPath)) {
     console.log(`No MinerU content for Chapter ${chapterNum} at ${contentPath}`);
     return;
@@ -119,6 +129,8 @@ async function uploadChapter(chapterNum) {
 
   // Upload chapter
   console.log('  Uploading chapter...');
+  await deleteChapter(chapterId);
+
   await supabaseRequest('chapters', 'POST', {
     id: chapterId,
     textbook_id: 'corporate-tax',
@@ -137,6 +149,9 @@ async function uploadChapter(chapterNum) {
     const sectionEndPage = ps.endPageIdx !== undefined
       ? chapterDef.startPage + ps.endPageIdx
       : chapterDef.endPage;
+
+    // Aggressively delete this specific section ID to avoid conflict
+    await supabaseRequest(`sections?id=eq.${sectionId}`, 'DELETE');
 
     await supabaseRequest('sections', 'POST', {
       id: sectionId,
@@ -166,15 +181,15 @@ async function uploadChapter(chapterNum) {
 
   for (let pageOffset = 0; pageOffset < pagesInChapter; pageOffset++) {
     const bookPageNum = chapterDef.startPage + pageOffset;
-    
+
     const matchingSection = findSectionForPage(pageOffset, parsedSections);
     const sectionId = matchingSection
       ? `${chapterId}-${matchingSection.letter}`
       : `${chapterId}-A`;
     const sectionTitle = matchingSection?.title || chapterDef.title;
-    
+
     const startsSection = parsedSections.some(s => s.startPageIdx === pageOffset);
-    
+
     const pageBlocks = blocksByPage.get(pageOffset) || [];
     const pageContent = JSON.stringify(pageBlocks);
 
@@ -187,7 +202,7 @@ async function uploadChapter(chapterNum) {
       content: pageContent,
       starts_new_section: startsSection,
     });
-    
+
     pagesUploaded++;
     if (pagesUploaded % 10 === 0) {
       console.log(`    ${pagesUploaded}/${pagesInChapter} pages...`);
@@ -203,7 +218,7 @@ async function main() {
   // Check which chapters have MinerU content
   const mineruDir = path.join(process.cwd(), 'public/data/mineru');
   const availableChapters = [];
-  
+
   for (let i = 1; i <= 15; i++) {
     const contentPath = path.join(mineruDir, `Ch${i}/content_list.json`);
     if (fs.existsSync(contentPath)) {

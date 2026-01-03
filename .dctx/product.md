@@ -1,13 +1,22 @@
 # Product Context
 
 ## What is this?
-<!-- Describe your project in 2-3 sentences -->
+Corporate Tax Textbook Learning App - converts PDF textbook chapters into structured, interactive learning content. Parses tables, equations, footnotes for proper rendering.
 
 ## Core Features
-<!-- List main features -->
+- PDF parsing with MinerU 2.5 (Locally)
+- Structured output (markdown + content_list.json)
+- Frontend rendering of parsed content
+- Chapter-by-chapter organization
 
 ## Current State
-<!-- What's built vs what's planned -->
+- Chapter 1: Parsed Locally
+- Chapters 2-15: Pending
+- Frontend: In progress
+- MinerU: Locally
 
 ## User Flow
-<!-- How users interact with this -->
+1. App loads parsed chapter data
+2. User selects chapter
+3. Content renders with proper tables, equations, formatting
+4. User studies corporate tax material
