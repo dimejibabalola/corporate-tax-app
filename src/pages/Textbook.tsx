@@ -427,7 +427,20 @@ const TextbookPage = () => {
                                     </CollapsibleTrigger>
                                     <CollapsibleContent className="pt-2 pl-4 space-y-2">
                                         {partChapters.map((chapter) => {
-                                            const chapterSections = sections.filter(s => s.chapterId === chapter.id);
+                                            const CH1_SECTIONS: ISection[] = [
+                                                { id: 'ch1-A', textbookId: masterBook?.id || '', chapterId: 'ch-1', letter: 'A', title: 'Tax Treatment of Corporations and Shareholders', startPage: 3, endPage: 6 },
+                                                { id: 'ch1-B', textbookId: masterBook?.id || '', chapterId: 'ch-1', letter: 'B', title: 'Tax Treatment of Partnerships and S Corporations', startPage: 6, endPage: 11 },
+                                                { id: 'ch1-C', textbookId: masterBook?.id || '', chapterId: 'ch-1', letter: 'C', title: 'Taxation of Corporate Income in the United States', startPage: 12, endPage: 18 },
+                                                { id: 'ch1-D', textbookId: masterBook?.id || '', chapterId: 'ch-1', letter: 'D', title: 'Choice of Business Entity', startPage: 18, endPage: 32 },
+                                                { id: 'ch1-E', textbookId: masterBook?.id || '', chapterId: 'ch-1', letter: 'E', title: 'Classification of Business Entities', startPage: 33, endPage: 47 },
+                                                { id: 'ch1-F', textbookId: masterBook?.id || '', chapterId: 'ch-1', letter: 'F', title: 'Integration of Corporate and Individual Taxes', startPage: 47, endPage: 60 },
+                                                { id: 'ch1-G', textbookId: masterBook?.id || '', chapterId: 'ch-1', letter: 'G', title: 'Tax Expenditure Analysis', startPage: 60, endPage: 64 },
+                                                { id: 'ch1-H', textbookId: masterBook?.id || '', chapterId: 'ch-1', letter: 'H', title: 'Tax Planning and Business Strategies', startPage: 64, endPage: 68 },
+                                            ];
+
+                                            const chapterSections = chapter.number === 1
+                                                ? CH1_SECTIONS
+                                                : sections.filter(s => s.chapterId === chapter.id);
                                             const markers = getChapterMarkers(chapter.id);
                                             const problemCount = markers.filter(m => m.type === 'problem').length;
                                             const caseCount = markers.filter(m => m.type === 'case').length;
@@ -482,7 +495,11 @@ const TextbookPage = () => {
                                                                         className="flex items-center gap-2 p-2 rounded hover:bg-blue-50 dark:hover:bg-blue-900/30 cursor-pointer transition-colors group"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            loadSectionContent(section, chapter);
+                                                                            if (chapter.number === 1) {
+                                                                                window.location.href = `/chapter/1#section-${section.letter}`;
+                                                                            } else {
+                                                                                loadSectionContent(section, chapter);
+                                                                            }
                                                                         }}
                                                                     >
                                                                         <Badge variant="outline" className="font-mono text-xs bg-blue-50 group-hover:bg-blue-100">
